@@ -525,10 +525,12 @@ window.exportDataAsFile = async () => {
 
   const raw = localStorage.getItem('kanban_data') || '{}';
   const settings = localStorage.getItem('kanban_settings') || '{}';
-  let data, settingsObj;
+  const gradesRaw = localStorage.getItem('kanban_grades') || '{}';
+  let data, settingsObj, gradesObj;
   try { data = JSON.parse(raw); } catch(e) { data = {}; }
   try { settingsObj = JSON.parse(settings); } catch(e) { settingsObj = {}; }
-  const exportObj = { ...data, settings: settingsObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
+  try { gradesObj = JSON.parse(gradesRaw); } catch(e) { gradesObj = {}; }
+  const exportObj = { ...data, settings: settingsObj, grades: gradesObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
 
   let json;
 
@@ -670,9 +672,10 @@ window.importDataFromFile = async (event) => {
   );
   if (!ok) return;
 
-  const { settings, exportedAt, appVersion, ...data } = parsed;
+  const { settings, grades, exportedAt, appVersion, ...data } = parsed;
   localStorage.setItem('kanban_data', JSON.stringify({ ...data, version: 1 }));
   if (settings) localStorage.setItem('kanban_settings', JSON.stringify(settings));
+  if (grades && Object.keys(grades).length > 0) localStorage.setItem('kanban_grades', JSON.stringify(grades));
 
   showToast('Backup wiederhergestellt! Seite wird neu geladen…');
   setTimeout(() => location.reload(), 1200);
@@ -710,10 +713,12 @@ window.exportForStudent = async function() {
 
   const raw = localStorage.getItem('kanban_data') || '{}';
   const settings = localStorage.getItem('kanban_settings') || '{}';
-  let data, settingsObj;
+  const gradesRaw = localStorage.getItem('kanban_grades') || '{}';
+  let data, settingsObj, gradesObj;
   try { data = JSON.parse(raw); } catch(e) { data = {}; }
   try { settingsObj = JSON.parse(settings); } catch(e) { settingsObj = {}; }
-  const exportObj = { ...data, settings: settingsObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
+  try { gradesObj = JSON.parse(gradesRaw); } catch(e) { gradesObj = {}; }
+  const exportObj = { ...data, settings: settingsObj, grades: gradesObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
 
   let json;
   try {
