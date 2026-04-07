@@ -13,7 +13,7 @@ function saveStudentConfig(cfg) {
 // ── APP STARTEN ──────────────────────────────────────────
 window.initApp = function() {
   document.getElementById('loading-screen').style.display = 'none';
-  const isStudent = new URLSearchParams(window.location.search).get('role') === 'schueler';
+  const isStudent = sessionStorage.getItem('kf_role') === 'schueler';
 
   if (isStudent) {
     initStudentAuth();
@@ -185,15 +185,28 @@ function enterApp(user, isStudent) {
   const adminBtn  = document.getElementById('sidebar-admin-btn');
   const iniBtn    = document.getElementById('sidebar-ini-btn');
   const returnBtn = document.getElementById('sidebar-return-to-student-btn');
+  const badge     = document.getElementById('sidebar-role-badge');
   if (isStudent) {
     if (adminBtn)  adminBtn.style.display  = 'none';
     if (iniBtn)    iniBtn.style.display    = 'none';
     if (returnBtn) returnBtn.style.display = 'none';
+    if (badge) {
+      badge.textContent = 'Schüler';
+      badge.style.background = 'rgba(34,197,94,0.15)';
+      badge.style.color = '#4ade80';
+      badge.style.borderColor = 'rgba(34,197,94,0.35)';
+    }
     S.isAdminMode = false;
   } else {
     if (adminBtn)  adminBtn.style.display  = '';
     if (iniBtn)    iniBtn.style.display    = '';
     if (returnBtn) returnBtn.style.display = '';
+    if (badge) {
+      badge.textContent = 'Lehrkraft';
+      badge.style.background = 'rgba(99,102,241,0.2)';
+      badge.style.color = '#818cf8';
+      badge.style.borderColor = 'rgba(99,102,241,0.35)';
+    }
     S.isAdminMode = true;
   }
 
