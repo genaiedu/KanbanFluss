@@ -275,30 +275,30 @@ window.loadTeacherIni = async function() {
   showToast(`INI von "${iniObj.teacherName || 'Lehrer'}" geladen`);
 };
 
-// ── ABMELDEN (zurück zum Begrüßungsbildschirm) ────────────
+// ── ABMELDEN (zurück zum Begrüßungsbildschirm, alle Daten löschen) ──
 window.logoutUser = async function() {
   const isStudent = window._kfSession?.isStudent;
   const ok = await showConfirm(
-    isStudent
-      ? 'Abmelden?\n\nDeine Boards bleiben gespeichert. Beim nächsten Mal musst du dich neu anmelden.'
-      : 'Abmelden?\n\nDeine Boards und Einstellungen bleiben erhalten.',
-    'Ja, abmelden', 'Abbrechen'
+    '⚠️ Abmelden?\n\nAlle Boards und Daten werden von diesem Gerät gelöscht.\nVorher exportieren falls nötig!',
+    'Ja, abmelden & löschen', 'Abbrechen'
   );
   if (!ok) return;
 
+  // Alle Daten löschen
+  localStorage.removeItem('kf_user');
+  localStorage.removeItem('kanban_data');
+  localStorage.removeItem('kanban_settings');
+  localStorage.removeItem(STUDENT_CFG_KEY);
   window._kfSession = null;
   if (typeof window.resetToolsSession === 'function') window.resetToolsSession();
+
   document.getElementById('app-screen').classList.remove('visible');
 
   if (isStudent) {
-    // kf_student_config behalten → Schüler kann sich direkt wieder per Passwort anmelden
     const ss = document.getElementById('student-auth-screen');
     ss.style.display = 'flex';
-    const config = getStudentConfig();
-    if (config) showStudentLogin(config);
-    else _setStudentStep('teacher');
+    _setStudentStep('teacher');
   } else {
-    localStorage.removeItem('kf_user');
     document.getElementById('auth-screen').style.display = 'flex';
     const el = document.getElementById('profile-name');
     if (el) { el.value = ''; setTimeout(() => el.focus(), 100); }
