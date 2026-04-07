@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/Users/clausunterberg/Documents/Eigene Apps/KanbanFluss-lokal-main/js/\"*.js)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s \"http://localhost:8788/app.js\")",
+      "Bash(curl -s -I \"http://localhost:8788/js/state.js\")",
+      "Bash(grep -i \"content-type\" curl -s -I \"http://localhost:8788/app.js\")",
+      "Bash(chmod +x \"/Users/clausunterberg/Documents/Eigene Apps/KanbanFluss-lokal-main/Start KanbanFluss.command\")"
+    ]
+  }
+}
