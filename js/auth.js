@@ -76,17 +76,15 @@ window.loadIniFromFile = async function(event) {
 
 window.submitStudentRegister = async function() {
   const name  = document.getElementById('student-reg-name').value.trim();
-  // im moment inaktiv: Passwortabfrage bei Erstanmeldung
-  // const pw    = document.getElementById('student-reg-pw').value;
-  // const pw2   = document.getElementById('student-reg-pw2').value;
-  const pw    = 'kf_nopw';
+  const pw    = document.getElementById('student-reg-pw').value;
+  const pw2   = document.getElementById('student-reg-pw2').value;
   const errEl = document.getElementById('student-reg-error');
   errEl.textContent = '';
 
   if (!_pendingIni)  { errEl.textContent = 'Bitte zuerst die INI-Datei auswählen.'; return; }
   if (!name)         { errEl.textContent = 'Bitte Namen eingeben.'; return; }
-  // if (pw.length < 4) { errEl.textContent = 'Passwort muss mindestens 4 Zeichen haben.'; return; }
-  // if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
+  if (pw.length < 4) { errEl.textContent = 'Passwort muss mindestens 4 Zeichen haben.'; return; }
+  if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
 
   const btn = document.getElementById('student-reg-submit');
   btn.disabled = true; btn.textContent = 'Wird eingerichtet…';
@@ -121,18 +119,20 @@ function showStudentLogin(config) {
 
 window.submitStudentLogin = async function() {
   const config = getStudentConfig();
-  // im moment inaktiv: Passwortabfrage bei Wiederkehrendem Schüler
-  // const pw = document.getElementById('student-login-pw').value;
-  // if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
-  // const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
-  // if (!ok) { errEl.textContent = 'Falsches Passwort.'; ... return; }
-  const pw    = 'kf_nopw';
-  const errEl = document.getElementById('student-login-error');
+  const pw     = document.getElementById('student-login-pw').value;
+  const errEl  = document.getElementById('student-login-error');
   errEl.textContent = '';
+  if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
 
   const btn = document.getElementById('student-login-submit');
-  btn.disabled = true; btn.textContent = 'Wird geladen…';
+  btn.disabled = true; btn.textContent = 'Prüfe…';
 
+  const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
+  if (!ok) {
+    errEl.textContent = 'Falsches Passwort.';
+    btn.disabled = false; btn.textContent = 'Anmelden';
+    return;
+  }
   window._kfSession = {
     studentPassword: pw, teacherPublicKeyJwk: config.publicKeyJwk,
     teacherName: config.teacherName, isStudent: true

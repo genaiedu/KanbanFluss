@@ -632,7 +632,8 @@ window.importDataFromFile = async (event) => {
 
         if (!iniObj) { showToast('INI-Datei ungültig oder abgebrochen.', 'error'); return; }
 
-        const pw = await _showPasswordDialog('load');
+        // Masterpasswort nur fragen wenn noch nicht aus dieser Sitzung bekannt
+        const pw = _teacherSessionPassword || await _showPasswordDialog('load');
         if (!pw) return;
         try {
           const privKey = await window.kfCrypto.getPrivKeyFromIni(iniObj, pw);
