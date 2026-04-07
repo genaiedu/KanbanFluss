@@ -47,7 +47,7 @@
 
     <!-- Schritt 1: INI-Datei hochladen -->
     <div id="student-step-teacher" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Erste Anmeldung</div>
+      <div class="auth-title" style="font-size:20px;">Lehrer-Datei laden</div>
       <div class="auth-subtitle" style="margin-bottom:20px;">Dein Lehrer hat dir eine <strong>.ini-Datei</strong> gegeben. Lade sie hier hoch:</div>
       <input type="file" id="ini-file-input" accept=".ini,.json" style="display:none;" onchange="loadIniFromFile(event)"/>
       <button class="btn btn-primary" onclick="document.getElementById('ini-file-input').click()" style="width:100%; padding:14px; font-size:15px;">
@@ -59,9 +59,9 @@
       </div>
     </div>
 
-    <!-- Schritt 2: Erstanmeldung -->
+    <!-- Schritt 2: Name + Passwort -->
     <div id="student-step-register" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Erste Anmeldung</div>
+      <div class="auth-title" style="font-size:20px;">Anmelden</div>
       <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Lehrer: <strong id="student-teacher-label" style="color:var(--text);"></strong></div>
       <input type="hidden" id="student-teacher-hidden"/>
       <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 12px; font-size:12px; color:#ef4444; margin:12px 0; line-height:1.5;">
