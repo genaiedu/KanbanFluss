@@ -15,7 +15,7 @@ echo "Starte lokalen Webserver auf Port $PORT aus: $(pwd)"
 python3 -m http.server $PORT &>/dev/null &
 sleep 1
 
-URL="http://localhost:$PORT/app.html?role=schueler"
+URL="http://localhost:$PORT/index.html"
 echo "Öffne KanbanFluss (Schüler-Version) im Browser..."
 
 # Chrome bevorzugen (unterstützt Speichern-Dialog beim Export)
