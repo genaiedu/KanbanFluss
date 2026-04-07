@@ -71,6 +71,7 @@
         <label>Dein Name</label>
         <input type="text" id="student-reg-name" placeholder="Vor- und Nachname" autocomplete="name"/>
       </div>
+      <!-- im moment inaktiv: Passwortfelder Erstanmeldung
       <div class="form-group">
         <label>Passwort wählen</label>
         <input type="password" id="student-reg-pw" placeholder="Mindestens 4 Zeichen"/>
@@ -79,6 +80,7 @@
         <label>Passwort bestätigen</label>
         <input type="password" id="student-reg-pw2" placeholder="Passwort wiederholen"/>
       </div>
+      -->
       <div id="student-reg-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
       <button id="student-reg-submit" class="btn btn-primary" onclick="submitStudentRegister()" style="width:100%;">Anmelden</button>
       <button class="btn" onclick="showTeacherSelection ? showTeacherSelection() : location.reload()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border);">← Anderen Lehrer wählen</button>
@@ -89,10 +91,12 @@
       <div class="auth-title" style="font-size:20px;">Willkommen zurück!</div>
       <div style="font-size:14px; color:var(--text); margin-bottom:4px;">👤 <strong id="student-login-username"></strong></div>
       <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Lehrer: <strong id="student-login-teacher" style="color:var(--text);"></strong></div>
+      <!-- im moment inaktiv: Passwortfeld Wiederkehrender Schüler
       <div class="form-group">
         <label>Dein Passwort</label>
         <input type="password" id="student-login-pw" placeholder="Passwort eingeben"/>
       </div>
+      -->
       <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
       <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%;">Anmelden</button>
       <button class="btn" onclick="resetStudentAuth()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); font-size:12px; opacity:0.7;">Anderen Lehrer wählen / Neu anmelden</button>
