@@ -135,6 +135,26 @@ window.kfCrypto = {
     const keyB64 = await this.rsaDecryptKey(obj.tchKeyEnc, teacherPrivKey);
     return this.decryptWithKey(obj.encData, await this.importKey(keyB64));
   },
+
+  // Gibt { data, dataKeyB64, stuKeyEnc } zurück — für Rückgabe-Export an Schüler nötig
+  async decryptDualTeacherFull(obj, teacherPrivKey) {
+    const dataKeyB64 = await this.rsaDecryptKey(obj.tchKeyEnc, teacherPrivKey);
+    const data = await this.decryptWithKey(obj.encData, await this.importKey(dataKeyB64));
+    return { data, dataKeyB64, stuKeyEnc: obj.stuKeyEnc };
+  },
+
+  // Re-verschlüsselt modifizierte Daten mit gleichem dataKey + originalem stuKeyEnc
+  // Schüler kann die zurückgegebene Datei mit seinem eigenen Passwort öffnen
+  async encryptDualReturn(jsonStr, dataKeyB64, stuKeyEnc, teacherPubKey, teacherName) {
+    const dataKey   = await this.importKey(dataKeyB64);
+    const encData   = await this.encryptWithKey(jsonStr, dataKey);
+    const tchKeyEnc = await this.rsaEncryptKey(dataKeyB64, teacherPubKey);
+    return JSON.stringify({
+      kanbanfluss: true, encrypted: true, version: 2,
+      teacherName, stuKeyEnc, tchKeyEnc, encData,
+      exportedAt: new Date().toISOString()
+    });
+  },
 };
 
 // INI-Dateien vom lokalen HTTP-Server auflisten

@@ -182,12 +182,18 @@ function enterApp(user, isStudent) {
   if (nameDisplay)  nameDisplay.textContent  = user.displayName || 'Nutzer';
   if (groupDisplay) groupDisplay.textContent = user.groupId || '';
 
-  const adminBtn = document.getElementById('sidebar-admin-btn');
+  const adminBtn  = document.getElementById('sidebar-admin-btn');
+  const iniBtn    = document.getElementById('sidebar-ini-btn');
+  const returnBtn = document.getElementById('sidebar-return-to-student-btn');
   if (isStudent) {
-    if (adminBtn) adminBtn.style.display = 'none';
+    if (adminBtn)  adminBtn.style.display  = 'none';
+    if (iniBtn)    iniBtn.style.display    = 'none';
+    if (returnBtn) returnBtn.style.display = 'none';
     S.isAdminMode = false;
   } else {
-    if (adminBtn) adminBtn.style.display = '';
+    if (adminBtn)  adminBtn.style.display  = '';
+    if (iniBtn)    iniBtn.style.display    = '';
+    if (returnBtn) returnBtn.style.display = '';
     S.isAdminMode = true;
   }
 
@@ -228,6 +234,75 @@ window.saveProfileEdit = function() {
   if (gd) gd.textContent = group;
   closeModal('modal-profile-edit');
   showToast('Profil gespeichert');
+};
+
+// ── INI-DATEI LADEN (jederzeit zugänglich) ────────────────
+window.loadTeacherIni = async function() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.ini,.json';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  const iniObj = await new Promise(resolve => {
+    input.onchange = async (e) => {
+      const f = e.target.files[0];
+      document.body.removeChild(input);
+      if (!f) { resolve(null); return; }
+      try {
+        const obj = JSON.parse(await f.text());
+        resolve(obj.kanbanfluss_ini ? obj : null);
+      } catch(e) { resolve(null); }
+    };
+    input.click();
+  });
+
+  if (!iniObj) { showToast('Keine gültige INI-Datei.', 'error'); return; }
+
+  // Für Lehrer: für nächsten Import merken (kein erneuter Upload nötig)
+  window._loadedIni = iniObj;
+
+  const session = window._kfSession;
+  if (session?.isStudent) {
+    // Für Schüler: Lehrer-Schlüssel aktualisieren (z.B. anderer Lehrer)
+    session.teacherPublicKeyJwk = iniObj.publicKey;
+    session.teacherName = iniObj.teacherName;
+    const cfg = getStudentConfig() || {};
+    cfg.publicKeyJwk = iniObj.publicKey;
+    cfg.teacherName = iniObj.teacherName;
+    saveStudentConfig(cfg);
+  }
+
+  showToast(`INI von "${iniObj.teacherName || 'Lehrer'}" geladen`);
+};
+
+// ── ABMELDEN (zurück zum Begrüßungsbildschirm) ────────────
+window.logoutUser = async function() {
+  const isStudent = window._kfSession?.isStudent;
+  const ok = await showConfirm(
+    isStudent
+      ? 'Abmelden?\n\nDeine Boards bleiben gespeichert. Beim nächsten Mal musst du dich neu anmelden.'
+      : 'Abmelden?\n\nDeine Boards und Einstellungen bleiben erhalten.',
+    'Ja, abmelden', 'Abbrechen'
+  );
+  if (!ok) return;
+
+  window._kfSession = null;
+  if (typeof window.resetToolsSession === 'function') window.resetToolsSession();
+  document.getElementById('app-screen').classList.remove('visible');
+
+  if (isStudent) {
+    // kf_student_config behalten → Schüler kann sich direkt wieder per Passwort anmelden
+    const ss = document.getElementById('student-auth-screen');
+    ss.style.display = 'flex';
+    const config = getStudentConfig();
+    if (config) showStudentLogin(config);
+    else _setStudentStep('teacher');
+  } else {
+    localStorage.removeItem('kf_user');
+    document.getElementById('auth-screen').style.display = 'flex';
+    const el = document.getElementById('profile-name');
+    if (el) { el.value = ''; setTimeout(() => el.focus(), 100); }
+  }
 };
 
 // ── ENTER-TASTEN ──────────────────────────────────────────

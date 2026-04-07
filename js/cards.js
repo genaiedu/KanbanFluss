@@ -554,15 +554,17 @@ window.renderCommentsList = () => {
 window.addComment = () => {
   const cardId = document.getElementById('comments-card-id').value;
   const colId  = document.getElementById('comments-col-id').value;
-  const text   = document.getElementById('new-comment-text').value.trim();
-  const role   = document.getElementById('comment-role-select')?.value || 'student';
+  const input  = document.getElementById('new-comment-input');
+  const text   = input?.value.trim();
   if (!text) return;
+  // Rolle automatisch aus Session ableiten: Schüler → 'student', Lehrer → 'teacher'
+  const role = window._kfSession?.isStudent ? 'student' : 'teacher';
   const card = (S.cards[colId]||[]).find(c => c.id === cardId);
   if (!card) return;
   const comments = [...(card.comments || []), { text, role, createdAt: new Date().toISOString() }];
   updateCard(S.currentBoard.id, colId, cardId, { comments });
   window.loadCards(colId);
-  document.getElementById('new-comment-text').value = '';
+  if (input) input.value = '';
   window.renderCommentsList();
 };
 

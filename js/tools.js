@@ -603,28 +603,30 @@ window.importDataFromFile = async (event) => {
       }
 
       if (!decrypted) {
-        // Lehrer-Weg: INI-Datei hochladen + Masterpasswort eingeben
-        let iniObj = null;
+        // Lehrer-Weg: INI-Datei + Masterpasswort
+        // Zuerst prüfen ob INI bereits geladen wurde (via "INI laden"-Button)
+        let iniObj = window._loadedIni || null;
 
-        // INI per Datei-Upload holen
-        iniObj = await new Promise(resolve => {
-          const input = document.createElement('input');
-          input.type = 'file'; input.accept = '.ini,.json';
-          input.style.display = 'none';
-          document.body.appendChild(input);
-          input.onchange = async (e) => {
-            const f = e.target.files[0];
-            document.body.removeChild(input);
-            if (!f) { resolve(null); return; }
-            try {
-              const obj = JSON.parse(await f.text());
-              resolve(obj.kanbanfluss_ini ? obj : null);
-            } catch(e) { resolve(null); }
-          };
-          // Kurzer Hinweis-Toast vor dem Dialog
-          showToast(`Bitte INI-Datei von "${parsed.teacherName || 'Lehrer'}" auswählen`);
-          input.click();
-        });
+        if (!iniObj) {
+          // INI per Datei-Upload holen
+          iniObj = await new Promise(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = '.ini,.json';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+            input.onchange = async (e) => {
+              const f = e.target.files[0];
+              document.body.removeChild(input);
+              if (!f) { resolve(null); return; }
+              try {
+                const obj = JSON.parse(await f.text());
+                resolve(obj.kanbanfluss_ini ? obj : null);
+              } catch(e) { resolve(null); }
+            };
+            showToast(`Bitte INI-Datei von "${parsed.teacherName || 'Lehrer'}" auswählen`);
+            input.click();
+          });
+        }
 
         if (!iniObj) { showToast('INI-Datei ungültig oder abgebrochen.', 'error'); return; }
 
@@ -632,7 +634,15 @@ window.importDataFromFile = async (event) => {
         if (!pw) return;
         try {
           const privKey = await window.kfCrypto.getPrivKeyFromIni(iniObj, pw);
-          decrypted = await window.kfCrypto.decryptDualTeacher(parsed, privKey);
+          const result  = await window.kfCrypto.decryptDualTeacherFull(parsed, privKey);
+          decrypted = result.data;
+          // Rückgabe-Keys für "An Schüler zurückgeben" merken
+          window._studentReturnKeys = {
+            dataKeyB64:  result.dataKeyB64,
+            stuKeyEnc:   result.stuKeyEnc,
+            teacherName: parsed.teacherName,
+          };
+          window._loadedIni = iniObj;
           _teacherSessionPassword = pw;
         } catch(e) {
           showToast('❌ Falsches Masterpasswort oder falsche INI-Datei.', 'error'); return;
@@ -674,4 +684,65 @@ window.saveDeadline = (boardId, inputId) => {
   updateBoard(boardId, { deadline: value });
   if (S.currentBoard?.id === boardId) S.currentBoard.deadline = value;
   showToast(value ? 'Abgabetermin gesetzt' : 'Abgabetermin entfernt');
+};
+
+// ── SESSION ZURÜCKSETZEN (wird von logoutUser in auth.js aufgerufen) ──
+window.resetToolsSession = function() {
+  _teacherSessionPassword = null;
+  window._loadedIni = null;
+  window._studentReturnKeys = null;
+};
+
+// ── RÜCKGABE-EXPORT AN SCHÜLER (Lehrer-only) ──────────────
+window.exportForStudent = async function() {
+  const keys = window._studentReturnKeys;
+  if (!keys) {
+    showToast('Bitte zuerst ein Schüler-Backup importieren.', 'error'); return;
+  }
+  const ini = window._loadedIni;
+  if (!ini) {
+    showToast('Bitte zuerst die Lehrer-INI laden (📂 INI laden).', 'error'); return;
+  }
+
+  let teacherPubKey;
+  try { teacherPubKey = await window.kfCrypto.importPubJwk(ini.publicKey); }
+  catch(e) { showToast('Fehler beim Laden des Lehrerschlüssels.', 'error'); return; }
+
+  const raw = localStorage.getItem('kanban_data') || '{}';
+  const settings = localStorage.getItem('kanban_settings') || '{}';
+  let data, settingsObj;
+  try { data = JSON.parse(raw); } catch(e) { data = {}; }
+  try { settingsObj = JSON.parse(settings); } catch(e) { settingsObj = {}; }
+  const exportObj = { ...data, settings: settingsObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
+
+  let json;
+  try {
+    json = await window.kfCrypto.encryptDualReturn(
+      JSON.stringify(exportObj), keys.dataKeyB64, keys.stuKeyEnc,
+      teacherPubKey, keys.teacherName || ini.teacherName
+    );
+  } catch(e) { showToast('Verschlüsselungsfehler: ' + e.message, 'error'); return; }
+
+  const date = new Date().toISOString().slice(0, 10);
+  const name = (S.currentUser?.displayName || '').replace(/\s+/g,'_') || 'lehrer';
+  const suggestedName = `kanbanfluss-rueckgabe-${name}-${date}.json`;
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'KanbanFluss Backup', accept: { 'application/json': ['.json'] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(json); await w.close();
+      showToast('📤 Datei gespeichert! Schüler kann sie mit seinem eigenen Passwort öffnen.');
+      return;
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = suggestedName; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📤 Datei gespeichert! Schüler kann sie mit seinem eigenen Passwort öffnen.');
 };

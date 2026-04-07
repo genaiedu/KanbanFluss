@@ -185,6 +185,12 @@
         <button class="sidebar-action-btn" onclick="document.getElementById('modal-create-ini').style.display='flex'" id="sidebar-ini-btn">
           🔑 Lehrer-INI erstellen
         </button>
+        <button class="sidebar-action-btn" id="sidebar-load-ini-btn" onclick="loadTeacherIni()">
+          📂 INI laden
+        </button>
+        <button class="sidebar-action-btn" id="sidebar-return-to-student-btn" onclick="exportForStudent()" style="display:none;">
+          📤 An Schüler zurückgeben
+        </button>
         <div class="sidebar-divider-line"></div>
         <button class="sidebar-action-btn" onclick="openProfileEdit()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil bearbeiten
@@ -196,6 +202,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Backup importieren (.json)
         </button>
         <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
+        <div class="sidebar-divider-line"></div>
+        <button class="sidebar-action-btn" id="sidebar-logout-btn" onclick="logoutUser()" style="color: var(--danger, #ef4444);">
+          ← Abmelden
+        </button>
       </div>
     </div>
 
@@ -783,7 +793,7 @@
     <div style="display: flex; gap: 8px; padding-top: 15px; border-top: 1px solid var(--border);">
       <input type="hidden" id="comments-card-id">
       <input type="hidden" id="comments-col-id">
-      <input type="text" id="new-comment-input" class="settings-input" placeholder="Schreibe etwas..." style="flex: 1;">
+      <input type="text" id="new-comment-input" class="settings-input" placeholder="Schreibe etwas..." style="flex: 1;" onkeydown="if(event.key==='Enter') addComment()">
       <button class="btn-sm btn-sm-primary" onclick="addComment()">Senden</button>
     </div>
   </div>
