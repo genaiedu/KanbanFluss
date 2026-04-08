@@ -189,18 +189,32 @@
         <button class="sidebar-action-btn" id="sidebar-load-ini-btn" onclick="loadTeacherIni()">
           📂 INI laden
         </button>
+        <!-- Lehrer: Firebase-Aktionen -->
+        <button class="sidebar-action-btn" id="sidebar-firebase-btn" onclick="document.getElementById('modal-firebase-login').style.display='flex'" style="display:none;">
+          ☁️ Firebase verbinden
+        </button>
+        <button class="sidebar-action-btn" id="sidebar-get-boards-btn" onclick="loadStudentBoardsFromFirebase()" style="display:none;">
+          📥 Schülerboards abrufen
+        </button>
+        <button class="sidebar-action-btn" id="sidebar-return-firebase-btn" onclick="returnBoardViaFirebase()" style="display:none;">
+          📤 An Schüler zurückschicken
+        </button>
         <button class="sidebar-action-btn" id="sidebar-return-to-student-btn" onclick="exportForStudent()" style="display:none;">
-          📤 An Schüler zurückgeben
+          💾 Als Datei zurückgeben
+        </button>
+        <!-- Schüler: Board senden -->
+        <button class="sidebar-action-btn" id="sidebar-send-btn" onclick="sendBoardToTeacher()" style="display:none;">
+          📤 An Lehrkraft senden
         </button>
         <div class="sidebar-divider-line"></div>
         <button class="sidebar-action-btn" onclick="openProfileEdit()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil bearbeiten
         </button>
         <button class="sidebar-action-btn" onclick="exportDataAsFile()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Alles exportieren (.json)
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Speichern (.json)
         </button>
         <button class="sidebar-action-btn" onclick="document.getElementById('backup-file-input').click()" title="Backup wiederherstellen">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Backup importieren (.json)
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Datei laden (.json)
         </button>
         <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
         <div class="sidebar-divider-line"></div>
@@ -909,6 +923,47 @@
     <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
       <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-create-ini')">Abbrechen</button>
       <button id="ini-create-btn" class="btn-sm btn-sm-primary" onclick="createTeacherIniFile()">🔑 INI-Datei erstellen & speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEHRER: FIREBASE VERBINDEN ─────────────────────────── -->
+<div id="modal-firebase-login" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:400px;">
+    <button class="modal-close-btn" onclick="closeModal('modal-firebase-login')">✕</button>
+    <div class="modal-title">☁️ Firebase verbinden</div>
+    <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+      Einmalige Verbindung mit Firebase für den Austausch mit Schülern.<br>
+      Beim ersten Mal wird automatisch ein Konto erstellt.
+    </div>
+    <div class="form-group">
+      <label>Deine E-Mail-Adresse</label>
+      <input type="email" id="fb-teacher-email" class="settings-input" style="width:100%;" placeholder="name@schule.de"/>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>Passwort</label>
+      <input type="password" id="fb-teacher-pw" class="settings-input" style="width:100%;" placeholder="Firebase-Passwort"/>
+    </div>
+    <div id="fb-teacher-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-top:8px;"></div>
+    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end; flex-wrap:wrap;">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-firebase-login')">Abbrechen</button>
+      <button class="btn-sm btn-sm-ghost" onclick="saveUpdatedIni()" title="Aktuell geladene INI mit teacherID speichern" style="color:var(--accent);">INI aktualisieren</button>
+      <button id="fb-login-btn" class="btn-sm btn-sm-primary" onclick="doFirebaseTeacherLogin()">Verbinden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEHRER: SCHÜLERBOARDS-LISTE ────────────────────────── -->
+<div id="modal-student-boards" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:480px;">
+    <button class="modal-close-btn" onclick="closeModal('modal-student-boards')">✕</button>
+    <div class="modal-title">📥 Eingereichte Boards</div>
+    <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+      Wähle ein Board zum Laden. Es wird entschlüsselt und in die App geladen.
+    </div>
+    <div id="student-boards-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-student-boards')">Schließen</button>
     </div>
   </div>
 </div>

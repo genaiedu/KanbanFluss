@@ -1,0 +1,74 @@
+// ═══════════════════════════════════════════════════════════════
+// KanbanFluss — Firebase Security Rules
+// In der Firebase-Konsole unter:
+//   Storage → Regeln
+//   Firestore → Regeln
+// einfügen und veröffentlichen.
+// ═══════════════════════════════════════════════════════════════
+
+
+// ── FIREBASE STORAGE ────────────────────────────────────────────
+// Pfadstruktur: briefkasten/{teacherID}/{pupilID}/{dateiname}
+//
+//  schueler.enc  — Schüler lädt hoch, Lehrer lädt herunter
+//  lehrer.enc    — Lehrer lädt hoch, Schüler lädt herunter
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Lehrer hat vollen Zugriff auf alle Dateien unter seiner teacherID
+    match /briefkasten/{teacherID}/{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == teacherID;
+    }
+
+    // Schüler hat nur Zugriff auf seinen eigenen Ordner
+    match /briefkasten/{teacherID}/{pupilID}/{filename} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == pupilID;
+    }
+  }
+}
+
+
+// ── CLOUD FIRESTORE ──────────────────────────────────────────────
+// Pfadstruktur: briefkaesten/{teacherID}/schueler/{pupilID}
+//
+// Dokument enthält:
+//   hatNeueDaten: true/false   — Schüler hat eingereicht
+//   hatNeueAntwort: true/false — Lehrer hat geantwortet
+//   schuelerName: string
+//   gesendetAm / geantwortetAm: Timestamp
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /briefkaesten/{teacherID}/schueler/{pupilID} {
+      allow read, write: if request.auth != null
+                         && (request.auth.uid == teacherID
+                             || request.auth.uid == pupilID);
+    }
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// SETUP-ANLEITUNG (einmalig pro Lehrkraft)
+// ═══════════════════════════════════════════════════════════════
+//
+// 1. In KanbanFluss (Lehrer-URL) einloggen
+// 2. Sidebar → "☁️ Firebase verbinden" klicken
+// 3. Schul-E-Mail + Passwort eingeben → "Verbinden"
+//    (Konto wird beim ersten Mal automatisch erstellt)
+// 4. Sidebar → "📂 INI laden" → eigene INI-Datei auswählen
+// 5. Im Firebase-Dialog → "INI aktualisieren" klicken
+//    (speichert neue INI mit teacherID — Schüler damit neu einladen!)
+//
+// Schüler-Setup:
+// 1. Neue INI-Datei vom Lehrer bekommen (enthält teacherID)
+// 2. index.html öffnen (Schüler-URL)
+// 3. INI laden → Name + Passwort setzen → Firebase-Konto
+//    wird automatisch im Hintergrund erstellt
+// 4. "📤 An Lehrkraft senden" schickt das Board verschlüsselt ab

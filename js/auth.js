@@ -92,14 +92,25 @@ window.submitStudentRegister = async function() {
   try {
     const iniObj      = _pendingIni;
     const teacherName = iniObj.teacherName;
+    const teacherID   = iniObj.teacherID || null;
     const verifyToken = await window.kfCrypto.createToken(pw);
 
-    saveStudentConfig({ teacherName, publicKeyJwk: iniObj.publicKey, verifyToken });
+    let pupilID = null;
+    if (teacherID && window.fbStudentAuth) {
+      try {
+        const fb = await window.fbStudentAuth(name, pw, teacherID);
+        pupilID = fb.uid;
+      } catch(fbErr) {
+        console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
+      }
+    }
+
+    saveStudentConfig({ teacherName, publicKeyJwk: iniObj.publicKey, verifyToken, teacherID, pupilID });
     saveUser({ displayName: name, groupId: '' });
 
     window._kfSession = {
       studentPassword: pw, teacherPublicKeyJwk: iniObj.publicKey,
-      teacherName, isStudent: true
+      teacherName, teacherID, pupilID, isStudent: true
     };
     enterApp(getUser(), true);
   } catch(e) {
@@ -133,11 +144,27 @@ window.submitStudentLogin = async function() {
     btn.disabled = false; btn.textContent = 'Anmelden';
     return;
   }
+
+  const user = getUser();
+  let { teacherID, pupilID } = config;
+
+  // Firebase-Login im Hintergrund (falls teacherID bekannt)
+  if (teacherID && window.fbStudentAuth) {
+    try {
+      const fb = await window.fbStudentAuth(user.displayName, pw, teacherID);
+      pupilID = fb.uid;
+      // pupilID in Config persistieren falls neu
+      if (fb.uid !== config.pupilID) saveStudentConfig({ ...config, pupilID: fb.uid });
+    } catch(fbErr) {
+      console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
+    }
+  }
+
   window._kfSession = {
     studentPassword: pw, teacherPublicKeyJwk: config.publicKeyJwk,
-    teacherName: config.teacherName, isStudent: true
+    teacherName: config.teacherName, teacherID, pupilID, isStudent: true
   };
-  enterApp(getUser(), true);
+  enterApp(user, true);
 };
 
 window.resetStudentAuth = async function() {
@@ -182,14 +209,24 @@ function enterApp(user, isStudent) {
   if (nameDisplay)  nameDisplay.textContent  = user.displayName || 'Nutzer';
   if (groupDisplay) groupDisplay.textContent = user.groupId || '';
 
-  const adminBtn  = document.getElementById('sidebar-admin-btn');
-  const iniBtn    = document.getElementById('sidebar-ini-btn');
-  const returnBtn = document.getElementById('sidebar-return-to-student-btn');
-  const badge     = document.getElementById('sidebar-role-badge');
+  const adminBtn        = document.getElementById('sidebar-admin-btn');
+  const iniBtn          = document.getElementById('sidebar-ini-btn');
+  const returnBtn       = document.getElementById('sidebar-return-to-student-btn');
+  const firebaseBtn     = document.getElementById('sidebar-firebase-btn');
+  const getBoardsBtn    = document.getElementById('sidebar-get-boards-btn');
+  const returnFbBtn     = document.getElementById('sidebar-return-firebase-btn');
+  const sendBtn         = document.getElementById('sidebar-send-btn');
+  const badge           = document.getElementById('sidebar-role-badge');
+
   if (isStudent) {
-    if (adminBtn)  adminBtn.style.display  = 'none';
-    if (iniBtn)    iniBtn.style.display    = 'none';
-    if (returnBtn) returnBtn.style.display = 'none';
+    if (adminBtn)     adminBtn.style.display     = 'none';
+    if (iniBtn)       iniBtn.style.display       = 'none';
+    if (returnBtn)    returnBtn.style.display     = 'none';
+    if (firebaseBtn)  firebaseBtn.style.display   = 'none';
+    if (getBoardsBtn) getBoardsBtn.style.display  = 'none';
+    if (returnFbBtn)  returnFbBtn.style.display   = 'none';
+    // "An Lehrkraft senden" nur zeigen wenn teacherID bekannt
+    if (sendBtn) sendBtn.style.display = window._kfSession?.teacherID ? '' : 'none';
     if (badge) {
       badge.textContent = 'Schüler';
       badge.style.background = 'rgba(34,197,94,0.15)';
@@ -198,9 +235,13 @@ function enterApp(user, isStudent) {
     }
     S.isAdminMode = false;
   } else {
-    if (adminBtn)  adminBtn.style.display  = '';
-    if (iniBtn)    iniBtn.style.display    = '';
-    if (returnBtn) returnBtn.style.display = '';
+    if (adminBtn)     adminBtn.style.display     = '';
+    if (iniBtn)       iniBtn.style.display       = '';
+    if (returnBtn)    returnBtn.style.display     = '';
+    if (firebaseBtn)  firebaseBtn.style.display   = '';
+    if (getBoardsBtn) getBoardsBtn.style.display  = '';
+    if (returnFbBtn)  returnFbBtn.style.display   = '';
+    if (sendBtn)      sendBtn.style.display       = 'none';
     if (badge) {
       badge.textContent = 'Lehrkraft';
       badge.style.background = 'rgba(99,102,241,0.2)';
@@ -304,6 +345,7 @@ window.logoutUser = async function() {
   localStorage.removeItem(STUDENT_CFG_KEY);
   window._kfSession = null;
   if (typeof window.resetToolsSession === 'function') window.resetToolsSession();
+  if (typeof window.fbSignOut === 'function') window.fbSignOut();
 
   document.getElementById('app-screen').classList.remove('visible');
 

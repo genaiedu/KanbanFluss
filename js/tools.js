@@ -697,6 +697,257 @@ window.resetToolsSession = function() {
   window._studentReturnKeys = null;
 };
 
+// ── SCHÜLER: Aktuelles Board an Lehrkraft senden (über Firebase) ──
+window.sendBoardToTeacher = async function() {
+  const session = window._kfSession;
+  if (!session?.isStudent) { showToast('Nur für Schüler.', 'error'); return; }
+
+  const teacherID = session.teacherID;
+  const pupilID   = session.pupilID;
+  if (!teacherID || !pupilID) {
+    showToast('Kein Firebase-Konto verknüpft. Bitte neu anmelden (INI muss teacherID enthalten).', 'error');
+    return;
+  }
+
+  if (!window.fbCurrentUser || !window.fbCurrentUser()) {
+    showToast('Nicht bei Firebase angemeldet. Bitte neu anmelden.', 'error'); return;
+  }
+
+  const raw = localStorage.getItem('kanban_data') || '{}';
+  const settings = localStorage.getItem('kanban_settings') || '{}';
+  const gradesRaw = localStorage.getItem('kanban_grades') || '{}';
+  let data, settingsObj, gradesObj;
+  try { data = JSON.parse(raw); } catch(e) { data = {}; }
+  try { settingsObj = JSON.parse(settings); } catch(e) { settingsObj = {}; }
+  try { gradesObj = JSON.parse(gradesRaw); } catch(e) { gradesObj = {}; }
+  const exportObj = { ...data, settings: settingsObj, grades: gradesObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
+
+  let teacherPubKey;
+  try { teacherPubKey = await window.kfCrypto.importPubJwk(session.teacherPublicKeyJwk); }
+  catch(e) { showToast('Fehler beim Laden des Lehrerschlüssels.', 'error'); return; }
+
+  let encrypted;
+  try {
+    encrypted = await window.kfCrypto.encryptDual(
+      JSON.stringify(exportObj), session.studentPassword, teacherPubKey, session.teacherName
+    );
+  } catch(e) { showToast('Verschlüsselungsfehler: ' + e.message, 'error'); return; }
+
+  try {
+    await window.fbSendToTeacher(encrypted, teacherID, pupilID, S.currentUser?.displayName || 'Schüler');
+    showToast('✅ Board an Lehrkraft gesendet!');
+  } catch(e) {
+    showToast('❌ Senden fehlgeschlagen: ' + e.message, 'error');
+  }
+};
+
+// ── LEHRER: Alle Schülerboards von Firebase laden ──
+window.loadStudentBoardsFromFirebase = async function() {
+  const ini = window._loadedIni;
+  if (!ini?.teacherID) {
+    showToast('INI-Datei ohne teacherID. Bitte Firebase verknüpfen und INI neu speichern.', 'error'); return;
+  }
+
+  // Firebase-Login prüfen / nachholen
+  if (!window.fbCurrentUser || !window.fbCurrentUser()) {
+    await _ensureTeacherFirebaseLogin();
+    if (!window.fbCurrentUser()) return;
+  }
+
+  showToast('Lade Schülerboards…');
+  let boards;
+  try {
+    boards = await window.fbGetStudentBoards(ini.teacherID);
+  } catch(e) {
+    showToast('❌ Laden fehlgeschlagen: ' + e.message, 'error'); return;
+  }
+
+  if (!boards.length) { showToast('Keine Einreichungen vorhanden.', 'info'); return; }
+
+  // Liste im Modal anzeigen
+  _showStudentBoardsList(boards, ini.teacherID);
+};
+
+// Zeigt Modal mit Liste der eingereichten Schülerboards
+function _showStudentBoardsList(boards, teacherID) {
+  let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+  boards.forEach((b, i) => {
+    html += `<div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 14px;">
+      <span style="font-weight:600;">${escHtml(b.schuelerName)}</span>
+      <button class="btn-sm btn-sm-primary" onclick="window._loadStudentBoardEntry(${i})">Laden</button>
+    </div>`;
+  });
+  html += '</div>';
+
+  window._pendingStudentBoards = boards;
+  window._pendingTeacherID     = teacherID;
+
+  const modal = document.getElementById('modal-student-boards');
+  document.getElementById('student-boards-list').innerHTML = html;
+  modal.style.display = 'flex';
+}
+
+// Lädt einen einzelnen Schülereintrag (Entschlüsselung + Import)
+window._loadStudentBoardEntry = async function(index) {
+  const board = window._pendingStudentBoards?.[index];
+  if (!board) return;
+  closeModal('modal-student-boards');
+
+  const ini = window._loadedIni;
+  const pw  = _teacherSessionPassword || await _showPasswordDialog('load');
+  if (!pw) return;
+  _teacherSessionPassword = pw;
+
+  let parsed;
+  try { parsed = JSON.parse(board.encryptedJson); }
+  catch(e) { showToast('Ungültiges Dateiformat.', 'error'); return; }
+
+  if (!parsed?.encrypted || parsed.version !== 2) {
+    showToast('Kein gültiges verschlüsseltes Schülerboard.', 'error'); return;
+  }
+
+  let decrypted, dataKeyB64, stuKeyEnc;
+  try {
+    const privKey = await window.kfCrypto.getPrivKeyFromIni(ini, pw);
+    const result  = await window.kfCrypto.decryptDualTeacherFull(parsed, privKey);
+    decrypted  = result.data;
+    dataKeyB64 = result.dataKeyB64;
+    stuKeyEnc  = result.stuKeyEnc;
+  } catch(e) {
+    showToast('❌ Entschlüsselung fehlgeschlagen – falsches Passwort oder falsche INI?', 'error'); return;
+  }
+
+  let data;
+  try { data = JSON.parse(decrypted); }
+  catch(e) { showToast('Entschlüsselung fehlgeschlagen.', 'error'); return; }
+
+  // Rückgabe-Keys für Firebase-Rückgabe speichern (inkl. pupilID)
+  window._studentReturnKeys = {
+    dataKeyB64, stuKeyEnc,
+    teacherName: parsed.teacherName || ini.teacherName,
+    pupilID:     board.pupilID,
+    teacherID:   window._pendingTeacherID,
+  };
+  window._loadedIni = ini;
+
+  // Daten in localStorage laden + Seite neu starten
+  const { settings, grades, ...kanbanData } = data;
+  localStorage.setItem('kanban_data', JSON.stringify({ ...kanbanData, version: 1 }));
+  if (settings) localStorage.setItem('kanban_settings', JSON.stringify(settings));
+  if (grades && Object.keys(grades).length > 0) localStorage.setItem('kanban_grades', JSON.stringify(grades));
+
+  showToast(`✅ Board von "${board.schuelerName}" geladen. Bitte Seite neu laden.`);
+  setTimeout(() => location.reload(), 1200);
+};
+
+// ── LEHRER: Kommentiertes Board via Firebase an Schüler zurückschicken ──
+window.returnBoardViaFirebase = async function() {
+  const keys = window._studentReturnKeys;
+  if (!keys?.pupilID || !keys?.teacherID) {
+    showToast('Kein Schüler-Board geladen oder Firebase-Daten fehlen.', 'error'); return;
+  }
+  const ini = window._loadedIni;
+  if (!ini) { showToast('INI-Datei nicht geladen.', 'error'); return; }
+
+  if (!window.fbCurrentUser || !window.fbCurrentUser()) {
+    await _ensureTeacherFirebaseLogin();
+    if (!window.fbCurrentUser()) return;
+  }
+
+  let teacherPubKey;
+  try { teacherPubKey = await window.kfCrypto.importPubJwk(ini.publicKey); }
+  catch(e) { showToast('Fehler beim Laden des Lehrerschlüssels.', 'error'); return; }
+
+  const raw = localStorage.getItem('kanban_data') || '{}';
+  const settings = localStorage.getItem('kanban_settings') || '{}';
+  const gradesRaw = localStorage.getItem('kanban_grades') || '{}';
+  let data, settingsObj, gradesObj;
+  try { data = JSON.parse(raw); } catch(e) { data = {}; }
+  try { settingsObj = JSON.parse(settings); } catch(e) { settingsObj = {}; }
+  try { gradesObj = JSON.parse(gradesRaw); } catch(e) { gradesObj = {}; }
+  const exportObj = { ...data, settings: settingsObj, grades: gradesObj, exportedAt: new Date().toISOString(), appVersion: 'standalone-1.0' };
+
+  let encrypted;
+  try {
+    encrypted = await window.kfCrypto.encryptDualReturn(
+      JSON.stringify(exportObj), keys.dataKeyB64, keys.stuKeyEnc,
+      teacherPubKey, keys.teacherName || ini.teacherName
+    );
+  } catch(e) { showToast('Verschlüsselungsfehler: ' + e.message, 'error'); return; }
+
+  try {
+    await window.fbReturnToStudent(encrypted, keys.teacherID, keys.pupilID);
+    showToast('✅ Board an Schüler zurückgeschickt!');
+  } catch(e) {
+    showToast('❌ Senden fehlgeschlagen: ' + e.message, 'error');
+  }
+};
+
+// ── LEHRER: Firebase-Login-Dialog (falls noch nicht angemeldet) ──
+async function _ensureTeacherFirebaseLogin() {
+  return new Promise(resolve => {
+    const modal = document.getElementById('modal-firebase-login');
+    if (modal) {
+      modal.style.display = 'flex';
+      window._fbLoginResolve = resolve;
+    } else {
+      resolve();
+    }
+  });
+}
+
+window.doFirebaseTeacherLogin = async function() {
+  const email = document.getElementById('fb-teacher-email')?.value.trim();
+  const pw    = document.getElementById('fb-teacher-pw')?.value;
+  const errEl = document.getElementById('fb-teacher-error');
+  if (errEl) errEl.textContent = '';
+  if (!email || !pw) { if (errEl) errEl.textContent = 'E-Mail und Passwort eingeben.'; return; }
+
+  const btn = document.getElementById('fb-login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
+
+  try {
+    let uid;
+    try {
+      uid = await window.fbTeacherLogin(email, pw);
+    } catch(loginErr) {
+      // Kein Account → neu registrieren
+      if (['auth/user-not-found','auth/invalid-credential'].includes(loginErr.code)) {
+        uid = await window.fbTeacherRegister(email, pw);
+        showToast('Firebase-Konto erstellt ✓');
+      } else throw loginErr;
+    }
+
+    // teacherID in geladene INI einbetten (zum späteren Neu-Speichern)
+    if (window._loadedIni && !window._loadedIni.teacherID) {
+      window._loadedIni.teacherID = uid;
+      showToast(`Firebase verbunden (ID: ${uid.slice(0,8)}…). Bitte INI neu speichern!`);
+    } else {
+      showToast(`Firebase verbunden ✓`);
+    }
+
+    closeModal('modal-firebase-login');
+    if (window._fbLoginResolve) { window._fbLoginResolve(); window._fbLoginResolve = null; }
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Fehler: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Verbinden'; }
+  }
+};
+
+// ── LEHRER: Aktuell geladene INI mit teacherID neu speichern ──
+window.saveUpdatedIni = function() {
+  const ini = window._loadedIni;
+  if (!ini?.teacherID) { showToast('Keine INI geladen oder teacherID fehlt.', 'error'); return; }
+  const json = window.kfCrypto.addTeacherIDToIni(ini, ini.teacherID);
+  const name = `${(ini.teacherName || 'lehrer').replace(/\s+/g,'_')}.ini`;
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Aktualisierte INI gespeichert! Schüler bitte neu einladen.');
+};
+
 // ── RÜCKGABE-EXPORT AN SCHÜLER (Lehrer-only) ──────────────
 window.exportForStudent = async function() {
   const keys = window._studentReturnKeys;

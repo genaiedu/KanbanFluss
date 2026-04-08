@@ -13,5 +13,6 @@ import './js/admin.js';
 import './js/grading.js?v=2';
 import './js/tools.js';
 import './js/ui.js';
+import './js/firebase-service.js';
 
 console.log('KanbanFluss: Alle Module geladen ✓');

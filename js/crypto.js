@@ -92,16 +92,23 @@ window.kfCrypto = {
   },
 
   // ── INI-DATEI (Lehrer-Schlüsselpaar) ─────────────────────
-  async createIni(teacherName, masterPassword) {
+  async createIni(teacherName, masterPassword, teacherID = null) {
     const pair    = await this.genRSAKeyPair();
     const pubJwk  = await this.exportPubJwk(pair.publicKey);
     const privJwk = await this.exportPrivJwk(pair.privateKey);
     const encPriv = await this.encryptStr(JSON.stringify(privJwk), masterPassword);
-    return JSON.stringify({
+    const ini = {
       kanbanfluss_ini: true, version: 1,
       teacherName, publicKey: pubJwk, encryptedPrivateKey: encPriv,
       createdAt: new Date().toISOString()
-    }, null, 2);
+    };
+    if (teacherID) ini.teacherID = teacherID;
+    return JSON.stringify(ini, null, 2);
+  },
+
+  // Fügt teacherID zu einer bestehenden INI hinzu (ohne RSA-Schlüssel neu zu generieren)
+  addTeacherIDToIni(iniObj, teacherID) {
+    return JSON.stringify({ ...iniObj, teacherID }, null, 2);
   },
 
   async getPrivKeyFromIni(iniObj, masterPassword) {
