@@ -16,8 +16,16 @@ window.createTeacherIniFile = async () => {
   btn.disabled = true; btn.textContent = 'Schlüssel werden generiert…';
 
   try {
-    const iniJson = await window.kfCrypto.createIni(name, pw);
+    // Firebase-UID als teacherID — Schüler brauchen sie für ihren Account
+    const teacherID = window.fbResumeSession?.()?.uid || null;
+    if (!teacherID) { errEl.textContent = 'Nicht bei Firebase angemeldet — bitte neu einloggen.'; btn.disabled = false; btn.textContent = '🔑 INI-Datei erstellen & speichern'; return; }
+
+    const iniJson = await window.kfCrypto.createIni(name, pw, teacherID);
+    const iniObj  = JSON.parse(iniJson);
     const suggestedName = `${name.replace(/\s+/g,'_')}.ini`;
+
+    // Sofort als aktive Lehrer-INI setzen (kein manuelles "INI laden" nötig)
+    window._loadedIni = iniObj;
 
     // Speichern-Dialog
     if (window.showSaveFilePicker) {
@@ -40,11 +48,8 @@ window.createTeacherIniFile = async () => {
       URL.revokeObjectURL(url);
     }
 
-    // Masterpasswort für diese Sitzung merken
-    _teacherSessionPassword = pw;
-
     closeModal('modal-create-ini');
-    showToast(`✅ INI-Datei "${suggestedName}" erstellt!`);
+    showToast(`✅ INI "${suggestedName}" erstellt — teacherID: ${teacherID.slice(0,8)}…`);
     const nameEl = document.getElementById('ini-teacher-name');
     if (nameEl) nameEl.value = '';
   } catch(e) {
