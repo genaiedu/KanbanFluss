@@ -51,9 +51,21 @@ window.fbTeacherAuth = async function(email, password) {
     const cred = await signInWithEmailAndPassword(_auth, email, password);
     return cred.user.uid;
   } catch(e) {
+    // Firebase 10 liefert 'auth/invalid-credential' sowohl für "User not found"
+    // als auch für "falsches Passwort" — deshalb erst Create versuchen,
+    // bei email-already-in-use → Account existiert, Passwort war falsch.
     if (['auth/user-not-found', 'auth/invalid-credential'].includes(e.code)) {
-      const cred = await createUserWithEmailAndPassword(_auth, email, password);
-      return cred.user.uid;
+      try {
+        const cred = await createUserWithEmailAndPassword(_auth, email, password);
+        return cred.user.uid;
+      } catch(e2) {
+        if (e2.code === 'auth/email-already-in-use') {
+          const err = new Error('Falsches Passwort.');
+          err.code = 'auth/wrong-password';
+          throw err;
+        }
+        throw e2;
+      }
     }
     throw e;
   }
@@ -119,8 +131,17 @@ window.fbStudentAuth = async function(identifier, pw, teacherID) {
     return { uid: cred.user.uid, email, hashB: pw };
   } catch(e) {
     if (['auth/user-not-found', 'auth/invalid-credential', 'auth/invalid-email'].includes(e.code)) {
-      const cred = await createUserWithEmailAndPassword(_auth, email, pw);
-      return { uid: cred.user.uid, email, hashB: pw };
+      try {
+        const cred = await createUserWithEmailAndPassword(_auth, email, pw);
+        return { uid: cred.user.uid, email, hashB: pw };
+      } catch(e2) {
+        if (e2.code === 'auth/email-already-in-use') {
+          const err = new Error('Falsches Passwort.');
+          err.code = 'auth/wrong-password';
+          throw err;
+        }
+        throw e2;
+      }
     }
     throw e;
   }
