@@ -610,30 +610,14 @@ window.importDataFromFile = async (event) => {
         let iniObj = window._loadedIni || null;
 
         if (!iniObj) {
-          // INI per Datei-Upload holen
-          iniObj = await new Promise(resolve => {
-            const input = document.createElement('input');
-            input.type = 'file'; input.accept = '.ini,.json';
-            input.style.display = 'none';
-            document.body.appendChild(input);
-            input.onchange = async (e) => {
-              const f = e.target.files[0];
-              document.body.removeChild(input);
-              if (!f) { resolve(null); return; }
-              try {
-                const obj = JSON.parse(await f.text());
-                resolve(obj.kanbanfluss_ini ? obj : null);
-              } catch(e) { resolve(null); }
-            };
-            showToast(`Bitte INI-Datei von "${parsed.teacherName || 'Lehrer'}" auswählen`);
-            input.click();
-          });
+          showToast('⚠️ Bitte zuerst die eigene INI-Datei über "INI laden" in der rechten Leiste laden.', 'error');
+          return;
         }
 
-        if (!iniObj) { showToast('INI-Datei ungültig oder abgebrochen.', 'error'); return; }
-
-        // Masterpasswort nur fragen wenn noch nicht aus dieser Sitzung bekannt
-        const pw = _teacherSessionPassword || await _showPasswordDialog('load');
+        // Cryptopasswort aus Session — kein erneuter Dialog nötig
+        const pw = _teacherSessionPassword
+                || window._kfSession?.teacherCryptoPw
+                || await _showPasswordDialog('load');
         if (!pw) return;
         try {
           const privKey = await window.kfCrypto.getPrivKeyFromIni(iniObj, pw);
@@ -655,7 +639,7 @@ window.importDataFromFile = async (event) => {
 
     } else {
       // ── Version 1: einfach mit Passwort verschlüsselt (Lehrer-Backup) ──
-      let pw = _teacherSessionPassword;
+      let pw = _teacherSessionPassword || window._kfSession?.teacherCryptoPw;
       if (!pw) { pw = await _showPasswordDialog('load'); if (!pw) return; }
       try {
         const decrypted = await window.kfCrypto.decryptStr(parsed, pw);
@@ -803,7 +787,9 @@ window._loadStudentBoardEntry = async function(index) {
   closeModal('modal-student-boards');
 
   const ini = window._loadedIni;
-  const pw  = _teacherSessionPassword || await _showPasswordDialog('load');
+  const pw  = _teacherSessionPassword
+            || window._kfSession?.teacherCryptoPw
+            || await _showPasswordDialog('load');
   if (!pw) return;
   _teacherSessionPassword = pw;
 

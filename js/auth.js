@@ -181,6 +181,9 @@ window.teacherLogin = async function() {
     // Cryptopasswort in Session hinterlegen — INI wird separat geladen/erstellt
     if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(cryptoPw);
 
+    // _kfSession für Lehrer setzen (kein isStudent, aber cryptoPw verfügbar)
+    window._kfSession = { isStudent: false, teacherCryptoPw: cryptoPw };
+
     // Identität in eigenem Key speichern (überlebt logout — kein Passwort drin!)
     saveTeacherIdentity(name, email);
 
