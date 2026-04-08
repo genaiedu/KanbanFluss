@@ -1,7 +1,15 @@
 // js/auth.js — Authentifizierung (Lehrer normal, Schüler mit INI + Passwort)
 import { S, getUser, saveUser } from './state.js';
 
-const STUDENT_CFG_KEY = 'kf_student_config';
+const STUDENT_CFG_KEY  = 'kf_student_config';
+const TEACHER_ID_KEY   = 'kf_teacher_identity'; // überlebt logout — nur Name + E-Mail
+
+function getTeacherIdentity() {
+  try { return JSON.parse(localStorage.getItem(TEACHER_ID_KEY) || 'null'); } catch(e) { return null; }
+}
+function saveTeacherIdentity(name, email) {
+  localStorage.setItem(TEACHER_ID_KEY, JSON.stringify({ displayName: name, teacherEmail: email }));
+}
 
 function getStudentConfig() {
   try { return JSON.parse(localStorage.getItem(STUDENT_CFG_KEY) || 'null'); } catch(e) { return null; }
@@ -18,15 +26,16 @@ window.initApp = function() {
   if (isStudent) {
     initStudentAuth();
   } else {
-    const user = getUser();
+    // Lehrer-Identität aus eigenem Key (überlebt logout)
+    const tid = getTeacherIdentity();
     document.getElementById('auth-screen').style.display = 'flex';
     const nameEl  = document.getElementById('teacher-login-name');
     const emailEl = document.getElementById('teacher-login-email');
-    if (nameEl  && user.displayName)  nameEl.value  = user.displayName;
-    if (emailEl && user.teacherEmail) emailEl.value = user.teacherEmail;
+    if (nameEl  && tid?.displayName)  nameEl.value  = tid.displayName;
+    if (emailEl && tid?.teacherEmail) emailEl.value = tid.teacherEmail;
 
-    if (user.teacherEmail) {
-      _showTeacherLogin(user);  // Wiederanmeldung: nur Passwort
+    if (tid?.teacherEmail) {
+      _showTeacherLogin(tid);   // Wiederanmeldung: nur Passwörter
     } else {
       _showTeacherRegister();   // Erstanmeldung: alle Felder
     }
@@ -60,7 +69,7 @@ function _showTeacherRegister() {
 
 // Öffentlich — für "Anderes Konto"-Button
 window.showTeacherRegister = function() {
-  // Email + Name leeren damit kein altes Konto vorausgefüllt bleibt
+  localStorage.removeItem(TEACHER_ID_KEY); // gespeicherte Identität vergessen
   const nameEl  = document.getElementById('teacher-login-name');
   const emailEl = document.getElementById('teacher-login-email');
   if (nameEl)  nameEl.value  = '';
@@ -171,6 +180,9 @@ window.teacherLogin = async function() {
 
     // Cryptopasswort in Session hinterlegen — INI wird separat geladen/erstellt
     if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(cryptoPw);
+
+    // Identität in eigenem Key speichern (überlebt logout — kein Passwort drin!)
+    saveTeacherIdentity(name, email);
 
     const user = { displayName: name, groupId: 'default', teacherEmail: email };
     saveUser(user);
