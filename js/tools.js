@@ -5,14 +5,12 @@ import { S, getBoards, getColumns, getCards, createBoard, createColumn,
 // ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
 window.createTeacherIniFile = async () => {
   const name  = document.getElementById('ini-teacher-name')?.value.trim() || '';
-  const pw    = document.getElementById('ini-master-pw')?.value || '';
-  const pw2   = document.getElementById('ini-master-pw2')?.value || '';
+  const pw    = _teacherSessionPassword; // Cryptopasswort aus der Anmeldung
   const errEl = document.getElementById('ini-create-error');
   errEl.textContent = '';
 
-  if (!name)         { errEl.textContent = 'Bitte Namen eingeben.'; return; }
-  if (pw.length < 6) { errEl.textContent = 'Masterpasswort muss mindestens 6 Zeichen haben.'; return; }
-  if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
+  if (!name)  { errEl.textContent = 'Bitte Namen eingeben.'; return; }
+  if (!pw)    { errEl.textContent = 'Kein Cryptopasswort in der Session — bitte neu anmelden.'; return; }
 
   const btn = document.getElementById('ini-create-btn');
   btn.disabled = true; btn.textContent = 'Schlüssel werden generiert…';
@@ -46,12 +44,9 @@ window.createTeacherIniFile = async () => {
     _teacherSessionPassword = pw;
 
     closeModal('modal-create-ini');
-    showToast(`✅ INI-Datei "${suggestedName}" erstellt! Bitte in den App-Ordner legen.`);
-
-    // Felder zurücksetzen
-    ['ini-teacher-name','ini-master-pw','ini-master-pw2'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
+    showToast(`✅ INI-Datei "${suggestedName}" erstellt!`);
+    const nameEl = document.getElementById('ini-teacher-name');
+    if (nameEl) nameEl.value = '';
   } catch(e) {
     errEl.textContent = 'Fehler: ' + e.message;
   } finally {
@@ -697,9 +692,13 @@ window.resetToolsSession = function() {
   window._studentReturnKeys = null;
 };
 
-// ── HASH B AUS LOGIN SETZEN (kein weiterer Passwort-Dialog nötig) ──
-window.setTeacherSessionKey = function(hashB) {
-  _teacherSessionPassword = hashB;
+// ── CRYPTOPASSWORT AUS LOGIN SETZEN / LESEN ──────────────
+window.setTeacherSessionKey = function(pw) {
+  _teacherSessionPassword = pw;
+};
+// Lese-Zugriff für auth.js (INI-Verifikation beim Laden)
+window._teacherSessionPasswordExport = function() {
+  return _teacherSessionPassword;
 };
 
 // ── SCHÜLER: Aktuelles Board an Lehrkraft senden (über Firebase) ──

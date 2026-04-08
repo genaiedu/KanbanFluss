@@ -43,7 +43,7 @@ function _showTeacherLogin(user) {
   document.getElementById('teacher-login-btn').textContent = 'Anmelden';
   document.getElementById('teacher-switch-link').style.display = '';
   document.getElementById('profile-error').textContent = '';
-  setTimeout(() => document.getElementById('teacher-login-pw')?.focus(), 100);
+  setTimeout(() => document.getElementById('teacher-login-dbpw')?.focus(), 100);
 }
 
 // ── LEHRER: Erstanmeldung / Kontowechsel (alle Felder) ───
@@ -71,217 +71,112 @@ window.showTeacherRegister = function() {
 // ── SCHÜLER-AUTHENTIFIZIERUNG ────────────────────────────
 async function initStudentAuth() {
   document.getElementById('student-auth-screen').style.display = 'flex';
-  // Immer Login-Formular zeigen — Kennung vorausfüllen falls bekannt
-  showStudentLoginForm();
-}
-
-// Zeigt den normalen Login-Screen
-window.showStudentLogin = function() {
-  showStudentLoginForm();
-};
-function showStudentLoginForm() {
-  document.getElementById('student-step-login').style.display    = 'block';
-  document.getElementById('student-step-register').style.display = 'none';
+  // Kennung vorausfüllen falls bekannt
   const config = getStudentConfig();
   const idEl   = document.getElementById('student-login-id');
   if (idEl && config?.studentID) idEl.value = config.studentID;
   document.getElementById('student-login-error').textContent = '';
   setTimeout(() => {
     const focus = config?.studentID
-      ? document.getElementById('student-login-pw')
+      ? document.getElementById('student-ini-input')
       : document.getElementById('student-login-id');
-    if (focus) focus.focus();
+    if (focus) focus.focus?.();
   }, 100);
 }
 
-// Zeigt den Registrierungs-Screen
-window.showStudentRegister = function() {
-  document.getElementById('student-step-login').style.display    = 'none';
-  document.getElementById('student-step-register').style.display = 'block';
-  _pendingIni = null;
-  document.getElementById('ini-load-status').textContent = '';
-  document.getElementById('student-reg-error').textContent = '';
-  setTimeout(() => document.getElementById('student-reg-name').focus(), 100);
-};
-
-// ── INI-Datei auswählen (Erstregistrierung / Lehrerwechsel)
-let _pendingIni = null;
-window.loadIniFromFile = async function(event) {
+// ── INI-Datei auswählen (Schüler-Login — immer erforderlich)
+let _pendingStudentIni = null;
+window.loadStudentIni = async function(event) {
   const file = event.target.files[0];
+  const statusEl = document.getElementById('student-ini-status');
   if (!file) return;
   try {
     const iniObj = JSON.parse(await file.text());
     if (!iniObj.kanbanfluss_ini) throw new Error('Keine gültige KanbanFluss-INI-Datei.');
-    _pendingIni = iniObj;
-    document.getElementById('ini-load-status').textContent =
-      `✓ INI von "${iniObj.teacherName || 'Lehrer'}" geladen`;
+    if (!iniObj.teacherID)       throw new Error('INI enthält keine teacherID — bitte neuere INI vom Lehrer holen.');
+    _pendingStudentIni = iniObj;
+    statusEl.style.color = '#4ade80';
+    statusEl.textContent = `✓ INI von "${iniObj.teacherName || 'Lehrer'}" geladen`;
   } catch(e) {
-    document.getElementById('ini-load-status').textContent = '❌ ' + e.message;
-    document.getElementById('ini-load-status').style.color = '#ef4444';
+    _pendingStudentIni = null;
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = '❌ ' + e.message;
     event.target.value = '';
   }
 };
 
-// ── ERSTANMELDUNG / LEHRERWECHSEL
-window.submitStudentRegister = async function() {
-  const name = document.getElementById('student-reg-name').value.trim();
-  const id   = document.getElementById('student-reg-id').value.trim();
-  const pw   = document.getElementById('student-reg-pw').value;
-  const pw2  = document.getElementById('student-reg-pw2').value;
-  const errEl = document.getElementById('student-reg-error');
-  errEl.textContent = '';
-
-  if (!name)         { errEl.textContent = 'Bitte Namen eingeben.'; return; }
-  if (!id)           { errEl.textContent = 'Bitte Kennung eingeben.'; return; }
-  if (!_pendingIni)  { errEl.textContent = 'Bitte zuerst die INI-Datei des Lehrers auswählen.'; return; }
-  if (pw.length < 4) { errEl.textContent = 'Passwort muss mindestens 4 Zeichen haben.'; return; }
-  if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
-
-  const btn = document.getElementById('student-reg-submit');
-  btn.disabled = true; btn.textContent = 'Wird eingerichtet…';
-
-  try {
-    const iniObj    = _pendingIni;
-    const teacherID = iniObj.teacherID || null;
-
-    if (!teacherID) throw new Error('INI-Datei enthält keine teacherID. Bitte neuere INI vom Lehrer holen.');
-
-    // Firebase-Konto erstellen (Zero-Knowledge: nur Hash A geht zu Firebase)
-    // Hash B (Verschlüsselungsschlüssel) kommt zurück und bleibt lokal
-    const fbResult = await window.fbStudentAuth(id, pw, teacherID);
-    const pupilID  = fbResult.uid;
-    const hashB    = fbResult.hashB; // für Verschlüsselung statt Rohpasswort
-
-    // Lehrer-Config in Firebase hinterlegen (für automatischen Re-Login)
-    await window.fbStudentSaveConfig(pupilID, {
-      teacherID, teacherName: iniObj.teacherName, publicKeyJwk: iniObj.publicKey
-    });
-
-    // Lokal speichern (verifyToken prüft nur das Rohpasswort — schnell, offline)
-    const verifyToken = await window.kfCrypto.createToken(pw);
-    saveStudentConfig({ studentID: id, teacherName: iniObj.teacherName,
-      publicKeyJwk: iniObj.publicKey, verifyToken, teacherID, pupilID });
-    saveUser({ displayName: name, groupId: '' });
-
-    window._kfSession = {
-      studentPassword: hashB,           // Hash B — nie das Rohpasswort
-      teacherPublicKeyJwk: iniObj.publicKey,
-      teacherName: iniObj.teacherName, teacherID, pupilID, isStudent: true
-    };
-    enterApp(getUser(), true);
-  } catch(e) {
-    errEl.textContent = 'Fehler: ' + e.message;
-    btn.disabled = false; btn.textContent = 'Konto erstellen';
-  }
-};
-
-// ── NORMALER LOGIN (wiederkehrender Schüler)
+// ── SCHÜLER-LOGIN (einheitlicher Flow — jedes Mal INI + zwei Passwörter)
 window.submitStudentLogin = async function() {
-  const id    = document.getElementById('student-login-id').value.trim();
-  const pw    = document.getElementById('student-login-pw').value;
-  const errEl = document.getElementById('student-login-error');
+  const id       = document.getElementById('student-login-id').value.trim();
+  const dbPw     = document.getElementById('student-login-dbpw').value;
+  const cryptoPw = document.getElementById('student-login-cryptopw').value;
+  const errEl    = document.getElementById('student-login-error');
   errEl.textContent = '';
-  if (!id) { errEl.textContent = 'Bitte Kennung eingeben.'; return; }
-  if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
+
+  if (!id)                  { errEl.textContent = 'Bitte Kennung eingeben.'; return; }
+  if (!_pendingStudentIni)  { errEl.textContent = 'Bitte INI-Datei des Lehrers auswählen.'; return; }
+  if (!dbPw)                { errEl.textContent = 'Bitte Datenbankpasswort eingeben.'; return; }
+  if (!cryptoPw)            { errEl.textContent = 'Bitte Cryptopasswort eingeben.'; return; }
 
   const btn = document.getElementById('student-login-submit');
-  btn.disabled = true; btn.textContent = 'Prüfe…';
+  btn.disabled = true; btn.textContent = 'Verbinde…';
 
   try {
-    let config = getStudentConfig();
+    const iniObj    = _pendingStudentIni;
+    const teacherID = iniObj.teacherID;
 
-    if (!config?.teacherID) {
-      // Kein lokaler Config → Schüler muss sich über "Neu hier" registrieren
-      errEl.textContent = 'Kein Konto gefunden. Bitte "Neu hier oder Lehrerwechsel?" nutzen.';
-      btn.disabled = false; btn.textContent = 'Anmelden';
-      return;
-    }
+    // Firebase-Auth (Account wird beim ersten Mal automatisch angelegt)
+    const fbResult = await window.fbStudentAuth(id, dbPw, teacherID);
+    const pupilID  = fbResult.uid;
 
-    // Lokales Passwort prüfen
-    const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
-    if (!ok) { errEl.textContent = 'Falsches Passwort.'; btn.disabled = false; btn.textContent = 'Anmelden'; return; }
+    // Kennung lokal speichern (für Vorausfüllen beim nächsten Login)
+    saveStudentConfig({ studentID: id, teacherID, teacherName: iniObj.teacherName,
+      publicKeyJwk: iniObj.publicKey, pupilID });
+    saveUser({ displayName: id, groupId: '' });
 
-    // Firebase-Login im Hintergrund — liefert auch Hash B für Verschlüsselung
-    let { teacherID, pupilID } = config;
-    let hashB = null;
-    try {
-      const fb = await window.fbStudentAuth(id, pw, teacherID);
-      pupilID = fb.uid;
-      hashB   = fb.hashB;
-
-      // Config frisch aus Firebase laden (falls Lehrer Public Key aktualisiert hat)
-      const freshConfig = await window.fbStudentLoadConfig(pupilID);
-      if (freshConfig) {
-        config = { ...config, ...freshConfig };
-        saveStudentConfig({ ...config, studentID: id, pupilID, verifyToken: config.verifyToken });
-      }
-    } catch(fbErr) {
-      console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
-      // Offline: Hash B lokal ableiten (selbe Formel wie in firebase-service.js)
-      try {
-        hashB = await window.fbDeriveEncKey
-          ? await window.fbDeriveEncKey(pw, teacherID + '|' + id.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,20))
-          : pw; // Fallback: Rohpasswort (nur offline)
-      } catch(_) { hashB = pw; }
-    }
-
-    const user = getUser();
+    // Session — cryptoPw bleibt lokal, verlässt nie das Gerät
     window._kfSession = {
-      studentPassword: hashB ?? pw,       // Hash B bevorzugt, Rohpasswort nur als Notfall
-      teacherPublicKeyJwk: config.publicKeyJwk,
-      teacherName: config.teacherName, teacherID, pupilID, isStudent: true
+      studentPassword:      cryptoPw,
+      teacherPublicKeyJwk:  iniObj.publicKey,
+      teacherName:          iniObj.teacherName,
+      teacherID, pupilID,   isStudent: true
     };
-    enterApp(user, true);
+    enterApp(getUser(), true);
   } catch(e) {
     errEl.textContent = 'Fehler: ' + e.message;
     btn.disabled = false; btn.textContent = 'Anmelden';
   }
 };
 
-// ── LEHRER: FIREBASE-LOGIN (einmalig, danach automatisch) ──
+// ── LEHRER: LOGIN (DB-Passwort für Firebase, Crypto-Passwort für INI) ──
 window.teacherLogin = async function() {
-  const name  = document.getElementById('teacher-login-name')?.value.trim();
-  const email = document.getElementById('teacher-login-email')?.value.trim().toLowerCase();
-  const pw    = document.getElementById('teacher-login-pw')?.value ?? '';
-  const errEl = document.getElementById('profile-error');
+  const name     = document.getElementById('teacher-login-name')?.value.trim();
+  const email    = document.getElementById('teacher-login-email')?.value.trim().toLowerCase();
+  const dbPw     = document.getElementById('teacher-login-dbpw')?.value ?? '';
+  const cryptoPw = document.getElementById('teacher-login-cryptopw')?.value ?? '';
+  const errEl    = document.getElementById('profile-error');
   if (errEl) errEl.textContent = '';
 
-  // Im Wiederanmeldungs-Modus sind Name/Email ausgeblendet aber vorausgefüllt
-  if (!name)         { if (errEl) errEl.textContent = 'Bitte Namen eingeben.'; return; }
-  if (!email)        { if (errEl) errEl.textContent = 'Bitte E-Mail eingeben.'; return; }
-  if (pw.length < 6) { if (errEl) errEl.textContent = 'Passwort: mindestens 6 Zeichen.'; return; }
+  if (!name)           { if (errEl) errEl.textContent = 'Bitte Namen eingeben.'; return; }
+  if (!email)          { if (errEl) errEl.textContent = 'Bitte E-Mail eingeben.'; return; }
+  if (dbPw.length < 6) { if (errEl) errEl.textContent = 'Datenbankpasswort: mindestens 6 Zeichen.'; return; }
+  if (!cryptoPw)       { if (errEl) errEl.textContent = 'Bitte Cryptopasswort eingeben.'; return; }
 
   const btn = document.getElementById('teacher-login-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
 
   try {
-    // Firebase-Login oder automatische Registrierung (vorerst Rohpasswort)
-    const uid = await window.fbTeacherAuth(email, pw);
+    // Firebase-Auth mit Datenbankpasswort (Account wird beim ersten Mal angelegt)
+    await window.fbTeacherAuth(email, dbPw);
 
-    // INI aus Firebase laden — oder neu erstellen (erster Start)
-    let iniObj;
-    if (await window.fbIniExists(uid)) {
-      const iniJson = await window.fbDownloadIni(uid);
-      iniObj = JSON.parse(iniJson);
-      // Passwort prüfen durch Entschlüsselung des privaten Schlüssels
-      try { await window.kfCrypto.getPrivKeyFromIni(iniObj, pw); }
-      catch(_) { throw new Error('Falsches Passwort.'); }
-    } else {
-      // Erster Start: RSA-Schlüsselpaar + INI erstellen und hochladen
-      const iniJson = await window.kfCrypto.createIni(name, pw, uid);
-      iniObj = JSON.parse(iniJson);
-      await window.fbUploadIni(iniJson, uid);
-    }
-
-    // Session einrichten — kein weiteres Passwort nötig für diese Sitzung
-    window._loadedIni = iniObj;
-    if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(pw);
+    // Cryptopasswort in Session hinterlegen — INI wird separat geladen/erstellt
+    if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(cryptoPw);
 
     const user = { displayName: name, groupId: 'default', teacherEmail: email };
     saveUser(user);
     enterApp(user, false);
   } catch(e) {
-    const msg = e.code === 'auth/wrong-password' ? 'Falsches Passwort.'
+    const msg = e.code === 'auth/wrong-password' ? 'Falsches Datenbankpasswort.'
               : e.code === 'auth/too-many-requests' ? 'Zu viele Versuche. Bitte kurz warten.'
               : e.message;
     if (errEl) errEl.textContent = 'Fehler: ' + msg;
@@ -373,7 +268,7 @@ window.saveProfileEdit = function() {
   showToast('Profil gespeichert');
 };
 
-// ── INI-DATEI LADEN (jederzeit zugänglich) ────────────────
+// ── INI-DATEI LADEN (Lehrer — lädt eigene vollständige INI mit Privatschlüssel) ──
 window.loadTeacherIni = async function() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.ini,.json';
@@ -388,28 +283,26 @@ window.loadTeacherIni = async function() {
       try {
         const obj = JSON.parse(await f.text());
         resolve(obj.kanbanfluss_ini ? obj : null);
-      } catch(e) { resolve(null); }
+      } catch(_) { resolve(null); }
     };
     input.click();
   });
 
   if (!iniObj) { showToast('Keine gültige INI-Datei.', 'error'); return; }
 
-  // Für Lehrer: für nächsten Import merken (kein erneuter Upload nötig)
-  window._loadedIni = iniObj;
-
-  const session = window._kfSession;
-  if (session?.isStudent) {
-    // Für Schüler: Lehrer-Schlüssel aktualisieren (z.B. anderer Lehrer)
-    session.teacherPublicKeyJwk = iniObj.publicKey;
-    session.teacherName = iniObj.teacherName;
-    const cfg = getStudentConfig() || {};
-    cfg.publicKeyJwk = iniObj.publicKey;
-    cfg.teacherName = iniObj.teacherName;
-    saveStudentConfig(cfg);
+  // Privatschlüssel mit Session-Cryptopasswort verifizieren
+  const cryptoPw = window._teacherSessionPasswordExport?.() ?? null;
+  if (cryptoPw && iniObj.encryptedPrivateKey) {
+    try {
+      await window.kfCrypto.getPrivKeyFromIni(iniObj, cryptoPw);
+    } catch(_) {
+      showToast('❌ INI passt nicht zum Cryptopasswort dieser Sitzung.', 'error');
+      return;
+    }
   }
 
-  showToast(`INI von "${iniObj.teacherName || 'Lehrer'}" geladen`);
+  window._loadedIni = iniObj;
+  showToast(`✅ INI von "${iniObj.teacherName || 'Lehrer'}" geladen — Privatschlüssel aktiv.`);
 };
 
 // ── ABMELDEN (zurück zum Begrüßungsbildschirm, alle Daten löschen) ──

@@ -44,62 +44,32 @@
         <img src="images/logo.png" style="width:78px; height:78px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
       </div>
     </div>
+    <div class="auth-title" style="font-size:20px;">Schüler-Anmeldung</div>
+    <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
 
-    <!-- Standard-Login (immer sichtbar zuerst) -->
-    <div id="student-step-login">
-      <div class="auth-title" style="font-size:20px;">Anmelden</div>
-      <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
-      <div class="form-group">
-        <label>Deine Kennung</label>
-        <input type="text" id="student-login-id" placeholder="Vorname oder E-Mail" autocomplete="username"/>
-      </div>
-      <div class="form-group">
-        <label>Passwort</label>
-        <input type="password" id="student-login-pw" placeholder="Dein Passwort" autocomplete="current-password"/>
-      </div>
-      <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%; margin-top:4px;">Anmelden</button>
-      <div style="text-align:center; margin-top:16px;">
-        <button onclick="showStudentRegister()" style="background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline;">
-          Neu hier oder Lehrerwechsel?
-        </button>
-      </div>
+    <div class="form-group">
+      <label>Deine Kennung</label>
+      <input type="text" id="student-login-id" placeholder="Vorname oder selbst gewählt" autocomplete="username"/>
     </div>
-
-    <!-- Erstanmeldung / Lehrerwechsel -->
-    <div id="student-step-register" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Konto einrichten</div>
-      <div class="auth-subtitle" style="margin-bottom:12px;">Einmalig — danach reichen Kennung + Passwort.</div>
-      <div id="student-reg-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
-      <div class="form-group">
-        <label>Dein Name</label>
-        <input type="text" id="student-reg-name" placeholder="Vor- und Nachname" autocomplete="name"/>
-      </div>
-      <div class="form-group">
-        <label>Deine Kennung <span style="color:var(--text-muted); font-size:11px;">(E-Mail oder selbst gewählt)</span></label>
-        <input type="text" id="student-reg-id" placeholder="Wird nur lokal genutzt" autocomplete="username"/>
-      </div>
-      <div class="form-group">
-        <label>Passwort <span style="color:var(--text-muted); font-size:11px;">(mind. 4 Zeichen)</span></label>
-        <input type="password" id="student-reg-pw" autocomplete="new-password"/>
-      </div>
-      <div class="form-group">
-        <label>Passwort bestätigen</label>
-        <input type="password" id="student-reg-pw2" autocomplete="new-password"/>
-      </div>
-      <div class="form-group">
-        <label>INI-Datei deines Lehrers</label>
-        <input type="file" id="ini-file-input" accept=".ini,.json" style="display:none;" onchange="loadIniFromFile(event)"/>
-        <button class="btn" onclick="document.getElementById('ini-file-input').click()" style="width:100%; background:rgba(77,127,255,0.15); border:1px solid rgba(77,127,255,0.5); color:var(--text); font-weight:600;">
-          📂 INI-Datei auswählen
-        </button>
-        <div id="ini-load-status" style="font-size:12px; color:#4ade80; margin-top:6px; min-height:16px;"></div>
-      </div>
-      <button id="student-reg-submit" class="btn btn-primary" onclick="submitStudentRegister()" style="width:100%;">Konto erstellen</button>
-      <div style="text-align:center; margin-top:12px;">
-        <button onclick="showStudentLogin()" style="background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline;">
-          ← Zurück zum Login
-        </button>
-      </div>
+    <div class="form-group">
+      <label>INI-Datei des Lehrers</label>
+      <input type="file" id="student-ini-input" accept=".ini,.json" style="display:none;" onchange="loadStudentIni(event)"/>
+      <button class="btn" onclick="document.getElementById('student-ini-input').click()" style="width:100%; background:rgba(77,127,255,0.15); border:1px solid rgba(77,127,255,0.5); color:var(--text); font-weight:600;">
+        📂 INI-Datei auswählen
+      </button>
+      <div id="student-ini-status" style="font-size:12px; color:#4ade80; margin-top:6px; min-height:16px;"></div>
+    </div>
+    <div class="form-group">
+      <label>Datenbankpasswort</label>
+      <input type="password" id="student-login-dbpw" placeholder="Für die Datenbank" autocomplete="new-password"/>
+    </div>
+    <div class="form-group">
+      <label>Cryptopasswort</label>
+      <input type="password" id="student-login-cryptopw" placeholder="Für deine Verschlüsselung" autocomplete="new-password"/>
+    </div>
+    <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%; margin-top:4px;">Anmelden</button>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:12px; text-align:center; line-height:1.5;">
+      Beide Passwörter werden bei jedem Login benötigt.<br>Das Cryptopasswort verlässt niemals das Gerät.
     </div>
   </div>
 </div>
@@ -124,8 +94,12 @@
       <input type="email" id="teacher-login-email" placeholder="name@schule.de" autocomplete="email"/>
     </div>
     <div class="form-group">
-      <label>Passwort <span style="color:var(--text-muted); font-size:11px;">(mind. 6 Zeichen)</span></label>
-      <input type="password" id="teacher-login-pw" placeholder="Passwort eingeben" autocomplete="current-password"/>
+      <label>Datenbankpasswort <span style="color:var(--text-muted); font-size:11px;">(mind. 6 Zeichen)</span></label>
+      <input type="password" id="teacher-login-dbpw" placeholder="Für Firebase-Anmeldung" autocomplete="current-password"/>
+    </div>
+    <div class="form-group">
+      <label>Cryptopasswort <span style="color:var(--text-muted); font-size:11px;">(mind. 4 Zeichen)</span></label>
+      <input type="password" id="teacher-login-cryptopw" placeholder="Für INI-Verschlüsselung" autocomplete="new-password"/>
     </div>
     <button id="teacher-login-btn" class="btn btn-primary" onclick="teacherLogin()" style="width:100%; margin-top:8px;">Konto erstellen</button>
     <div style="text-align:center; margin-top:14px;">
@@ -226,6 +200,9 @@
       </button>
       <button class="rpb" onclick="document.getElementById('modal-create-ini').style.display='flex'" title="INI erstellen">
         🔑<span>INI&nbsp;erstellen</span>
+      </button>
+      <button class="rpb" onclick="loadTeacherIni()" title="Eigene INI laden">
+        📂<span>INI&nbsp;laden</span>
       </button>
       <button class="rpb" onclick="saveUpdatedIni()" title="Schüler-INI speichern">
         💾<span>INI&nbsp;speichern</span>
@@ -919,23 +896,14 @@
     <button class="modal-close-btn" onclick="closeModal('modal-create-ini')">✕</button>
     <div class="modal-title">🔑 Lehrer-INI-Datei erstellen</div>
     <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
-      Erstellt ein Schlüsselpaar. Schüler können mit der INI-Datei ihre Daten für dich verschlüsseln.<br>
-      Du öffnest Schülerdaten mit deinem Masterpasswort.
+      Erstellt ein RSA-Schlüsselpaar. Das <strong>Cryptopasswort</strong> aus deiner Anmeldung wird automatisch verwendet.
     </div>
     <div class="form-group">
       <label>Dein Name (erscheint für Schüler)</label>
       <input type="text" id="ini-teacher-name" class="settings-input" style="width:100%;" placeholder="z. B. Fr. Müller"/>
     </div>
-    <div class="form-group" style="margin-top:12px;">
-      <label>Masterpasswort</label>
-      <input type="password" id="ini-master-pw" class="settings-input" style="width:100%;" placeholder="Mindestens 6 Zeichen"/>
-    </div>
-    <div class="form-group" style="margin-top:12px;">
-      <label>Masterpasswort bestätigen</label>
-      <input type="password" id="ini-master-pw2" class="settings-input" style="width:100%;" placeholder="Passwort wiederholen"/>
-    </div>
-    <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 12px; font-size:12px; color:#ef4444; margin:12px 0; line-height:1.5;">
-      ⚠️ <strong>Masterpasswort sicher aufbewahren!</strong> Ohne es können Schülerdaten nicht mehr entschlüsselt werden.
+    <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:10px 12px; font-size:12px; color:#a5b4fc; margin:12px 0; line-height:1.5;">
+      🔑 Die INI wird mit dem Cryptopasswort verschlüsselt, das du beim Anmelden eingegeben hast.
     </div>
     <div id="ini-create-error" style="color:#ef4444; font-size:13px; min-height:18px;"></div>
     <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">

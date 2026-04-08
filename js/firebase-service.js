@@ -1,6 +1,10 @@
 // js/firebase-service.js — Zero-Knowledge Firebase-Dienste
 // Nutzt Firebase für Auth, Storage und Firestore-Benachrichtigungen.
-// Das lokale Passwort wird NIEMALS an Firebase übertragen (Zero-Knowledge).
+// Das lokale Cryptopasswort wird NIEMALS an Firebase übertragen (Zero-Knowledge).
+
+// ── FEATURE-FLAGS (zum einfachen Ein-/Ausschalten) ────────
+// Auf true setzen um INI automatisch über Firebase zu speichern/laden:
+const USE_FIREBASE_INI_SYNC = false;
 
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js';
