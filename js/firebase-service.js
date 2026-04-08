@@ -92,7 +92,19 @@ window.fbGetTeacherPubKey = async function(teacherID) {
   return fetch(url).then(r => r.json()); // { teacherName, publicKey, teacherID }
 };
 
-// ── LEHRER: Überprüfen ob Firebase-Session noch aktiv ist
+// ── SCHÜLER: Lehrer-Config in Firestore speichern (nach erster Anmeldung)
+window.fbStudentSaveConfig = async function(pupilID, config) {
+  // config = { teacherID, teacherName, publicKeyJwk }
+  await setDoc(doc(_db, 'schueler', pupilID), config);
+};
+
+// ── SCHÜLER: Lehrer-Config aus Firestore laden
+window.fbStudentLoadConfig = async function(pupilID) {
+  const snap = await getDoc(doc(_db, 'schueler', pupilID));
+  return snap.exists() ? snap.data() : null;
+};
+
+// ── Aktuell angemeldeter Firebase-Nutzer
 window.fbResumeSession = function() {
   return _auth.currentUser;
 };

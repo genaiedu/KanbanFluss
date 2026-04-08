@@ -45,10 +45,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Benachrichtigungen Lehrer ↔ Schüler
     match /briefkaesten/{teacherID}/schueler/{pupilID} {
       allow read, write: if request.auth != null
                          && (request.auth.uid == teacherID
                              || request.auth.uid == pupilID);
+    }
+
+    // Schüler speichert seine Lehrer-Zuordnung (teacherID, publicKey)
+    // Nur der Schüler selbst kann lesen/schreiben
+    match /schueler/{pupilID} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == pupilID;
     }
   }
 }

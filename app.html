@@ -38,64 +38,68 @@
 
 <!-- ── SCHÜLER-LOGIN-SCREEN ───────────────────────────── -->
 <div id="student-auth-screen" style="display:none; position:fixed; inset:0; background:var(--bg-body); z-index:900; align-items:center; justify-content:center; padding:20px;">
-  <div class="auth-box" style="max-width:420px;">
+  <div class="auth-box" style="max-width:400px;">
     <div class="auth-logo">
       <div style="background:#ffffff; border-radius:24px; width:100px; height:100px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 24px rgba(0,0,0,0.15);">
         <img src="images/logo.png" style="width:78px; height:78px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
       </div>
     </div>
 
-    <!-- Schritt 1: INI-Datei hochladen -->
-    <div id="student-step-teacher" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Lehrer-Datei laden</div>
-      <div class="auth-subtitle" style="margin-bottom:20px;">Dein Lehrer hat dir eine <strong>.ini-Datei</strong> gegeben. Lade sie hier hoch:</div>
-      <input type="file" id="ini-file-input" accept=".ini,.json" style="display:none;" onchange="loadIniFromFile(event)"/>
-      <button class="btn btn-primary" onclick="document.getElementById('ini-file-input').click()" style="width:100%; padding:14px; font-size:15px;">
-        📂 INI-Datei auswählen
-      </button>
-      <div id="ini-load-error" style="color:#ef4444; font-size:13px; margin-top:12px; min-height:18px;"></div>
-      <div style="font-size:12px; color:var(--text-muted); margin-top:16px; line-height:1.5; text-align:center;">
-        Noch keine INI-Datei? Bitte deinen Lehrer, eine zu erstellen.
+    <!-- Standard-Login (immer sichtbar zuerst) -->
+    <div id="student-step-login">
+      <div class="auth-title" style="font-size:20px;">Anmelden</div>
+      <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
+      <div class="form-group">
+        <label>Deine Kennung</label>
+        <input type="text" id="student-login-id" placeholder="Vorname oder E-Mail" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" id="student-login-pw" placeholder="Dein Passwort" autocomplete="current-password"/>
+      </div>
+      <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%; margin-top:4px;">Anmelden</button>
+      <div style="text-align:center; margin-top:16px;">
+        <button onclick="showStudentRegister()" style="background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline;">
+          Neu hier oder Lehrerwechsel?
+        </button>
       </div>
     </div>
 
-    <!-- Schritt 2: Name + Passwort -->
+    <!-- Erstanmeldung / Lehrerwechsel -->
     <div id="student-step-register" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Anmelden</div>
-      <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Lehrer: <strong id="student-teacher-label" style="color:var(--text);"></strong></div>
-      <input type="hidden" id="student-teacher-hidden"/>
-      <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 12px; font-size:12px; color:#ef4444; margin:12px 0; line-height:1.5;">
-        ⚠️ <strong>Merke dir dein Passwort!</strong> Ohne es kannst du deine gespeicherten Daten nicht mehr öffnen.
-      </div>
+      <div class="auth-title" style="font-size:20px;">Konto einrichten</div>
+      <div class="auth-subtitle" style="margin-bottom:12px;">Einmalig — danach reichen Kennung + Passwort.</div>
+      <div id="student-reg-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
       <div class="form-group">
         <label>Dein Name</label>
         <input type="text" id="student-reg-name" placeholder="Vor- und Nachname" autocomplete="name"/>
       </div>
       <div class="form-group">
-        <label>Passwort wählen</label>
-        <input type="password" id="student-reg-pw" placeholder="Mindestens 4 Zeichen"/>
+        <label>Deine Kennung <span style="color:var(--text-muted); font-size:11px;">(E-Mail oder selbst gewählt)</span></label>
+        <input type="text" id="student-reg-id" placeholder="Wird nur lokal genutzt" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Passwort <span style="color:var(--text-muted); font-size:11px;">(mind. 4 Zeichen)</span></label>
+        <input type="password" id="student-reg-pw" autocomplete="new-password"/>
       </div>
       <div class="form-group">
         <label>Passwort bestätigen</label>
-        <input type="password" id="student-reg-pw2" placeholder="Passwort wiederholen"/>
+        <input type="password" id="student-reg-pw2" autocomplete="new-password"/>
       </div>
-      <div id="student-reg-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
-      <button id="student-reg-submit" class="btn btn-primary" onclick="submitStudentRegister()" style="width:100%;">Anmelden</button>
-      <button class="btn" onclick="showTeacherSelection ? showTeacherSelection() : location.reload()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border);">← Anderen Lehrer wählen</button>
-    </div>
-
-    <!-- Schritt 3: Wiederkehrender Schüler -->
-    <div id="student-step-login" style="display:none;">
-      <div class="auth-title" style="font-size:20px;">Willkommen zurück!</div>
-      <div style="font-size:14px; color:var(--text); margin-bottom:4px;">👤 <strong id="student-login-username"></strong></div>
-      <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Lehrer: <strong id="student-login-teacher" style="color:var(--text);"></strong></div>
       <div class="form-group">
-        <label>Dein Passwort</label>
-        <input type="password" id="student-login-pw" placeholder="Passwort eingeben"/>
+        <label>INI-Datei deines Lehrers</label>
+        <input type="file" id="ini-file-input" accept=".ini,.json" style="display:none;" onchange="loadIniFromFile(event)"/>
+        <button class="btn" onclick="document.getElementById('ini-file-input').click()" style="width:100%; background:rgba(255,255,255,0.05); border:1px dashed var(--border);">
+          📂 INI-Datei auswählen
+        </button>
+        <div id="ini-load-status" style="font-size:12px; color:#4ade80; margin-top:6px; min-height:16px;"></div>
       </div>
-      <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
-      <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%;">Anmelden</button>
-      <button class="btn" onclick="resetStudentAuth()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); font-size:12px; opacity:0.7;">Anderen Lehrer wählen / Neu anmelden</button>
+      <button id="student-reg-submit" class="btn btn-primary" onclick="submitStudentRegister()" style="width:100%;">Konto erstellen</button>
+      <div style="text-align:center; margin-top:12px;">
+        <button onclick="showStudentLogin()" style="background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline;">
+          ← Zurück zum Login
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -201,9 +205,6 @@
           </button>
           <button class="sib" onclick="saveUpdatedIni()" id="sidebar-save-ini-btn" title="INI speichern">
             💾<span>INI speichern</span>
-          </button>
-          <button class="sib" onclick="document.getElementById('modal-firebase-login').style.display='flex'" id="sidebar-firebase-btn" title="Firebase verbinden">
-            ☁️<span>Firebase</span>
           </button>
           <button class="sib" onclick="loadStudentBoardsFromFirebase()" id="sidebar-get-boards-btn" title="Schülerboards abrufen">
             📥<span>Boards abrufen</span>

@@ -39,58 +39,69 @@ window.initApp = function() {
 // ── SCHÜLER-AUTHENTIFIZIERUNG ────────────────────────────
 async function initStudentAuth() {
   document.getElementById('student-auth-screen').style.display = 'flex';
+  // Immer Login-Formular zeigen — Kennung vorausfüllen falls bekannt
+  showStudentLoginForm();
+}
+
+// Zeigt den normalen Login-Screen
+window.showStudentLogin = function() {
+  showStudentLoginForm();
+};
+function showStudentLoginForm() {
+  document.getElementById('student-step-login').style.display    = 'block';
+  document.getElementById('student-step-register').style.display = 'none';
   const config = getStudentConfig();
-  if (!config) {
-    await showTeacherSelection();
-  } else {
-    showStudentLogin(config);
-  }
+  const idEl   = document.getElementById('student-login-id');
+  if (idEl && config?.studentID) idEl.value = config.studentID;
+  document.getElementById('student-login-error').textContent = '';
+  setTimeout(() => {
+    const focus = config?.studentID
+      ? document.getElementById('student-login-pw')
+      : document.getElementById('student-login-id');
+    if (focus) focus.focus();
+  }, 100);
 }
 
-// Gespeichertes INI-Objekt während der Registrierung
-let _pendingIni = null;
-
-async function showTeacherSelection() {
-  _setStudentStep('teacher');
+// Zeigt den Registrierungs-Screen
+window.showStudentRegister = function() {
+  document.getElementById('student-step-login').style.display    = 'none';
+  document.getElementById('student-step-register').style.display = 'block';
   _pendingIni = null;
-  const errEl = document.getElementById('ini-load-error');
-  if (errEl) errEl.textContent = '';
-  const input = document.getElementById('ini-file-input');
-  if (input) input.value = '';
-}
+  document.getElementById('ini-load-status').textContent = '';
+  document.getElementById('student-reg-error').textContent = '';
+  setTimeout(() => document.getElementById('student-reg-name').focus(), 100);
+};
 
-// Wird vom <input type="file"> aufgerufen
+// ── INI-Datei auswählen (Erstregistrierung / Lehrerwechsel)
+let _pendingIni = null;
 window.loadIniFromFile = async function(event) {
-  const file  = event.target.files[0];
-  const errEl = document.getElementById('ini-load-error');
-  errEl.textContent = '';
+  const file = event.target.files[0];
   if (!file) return;
-
   try {
-    const text   = await file.text();
-    const iniObj = JSON.parse(text);
+    const iniObj = JSON.parse(await file.text());
     if (!iniObj.kanbanfluss_ini) throw new Error('Keine gültige KanbanFluss-INI-Datei.');
-
     _pendingIni = iniObj;
-    _setStudentStep('register');
-    document.getElementById('student-teacher-label').textContent = iniObj.teacherName || file.name.replace(/\.ini$/i,'');
-    document.getElementById('student-reg-error').textContent     = '';
-    setTimeout(() => document.getElementById('student-reg-name').focus(), 100);
+    document.getElementById('ini-load-status').textContent =
+      `✓ INI von "${iniObj.teacherName || 'Lehrer'}" geladen`;
   } catch(e) {
-    errEl.textContent = 'Fehler: ' + e.message;
+    document.getElementById('ini-load-status').textContent = '❌ ' + e.message;
+    document.getElementById('ini-load-status').style.color = '#ef4444';
     event.target.value = '';
   }
 };
 
+// ── ERSTANMELDUNG / LEHRERWECHSEL
 window.submitStudentRegister = async function() {
-  const name  = document.getElementById('student-reg-name').value.trim();
-  const pw    = document.getElementById('student-reg-pw').value;
-  const pw2   = document.getElementById('student-reg-pw2').value;
+  const name = document.getElementById('student-reg-name').value.trim();
+  const id   = document.getElementById('student-reg-id').value.trim();
+  const pw   = document.getElementById('student-reg-pw').value;
+  const pw2  = document.getElementById('student-reg-pw2').value;
   const errEl = document.getElementById('student-reg-error');
   errEl.textContent = '';
 
-  if (!_pendingIni)  { errEl.textContent = 'Bitte zuerst die INI-Datei auswählen.'; return; }
   if (!name)         { errEl.textContent = 'Bitte Namen eingeben.'; return; }
+  if (!id)           { errEl.textContent = 'Bitte Kennung eingeben.'; return; }
+  if (!_pendingIni)  { errEl.textContent = 'Bitte zuerst die INI-Datei des Lehrers auswählen.'; return; }
   if (pw.length < 4) { errEl.textContent = 'Passwort muss mindestens 4 Zeichen haben.'; return; }
   if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
 
@@ -98,100 +109,90 @@ window.submitStudentRegister = async function() {
   btn.disabled = true; btn.textContent = 'Wird eingerichtet…';
 
   try {
-    const iniObj      = _pendingIni;
-    const teacherName = iniObj.teacherName;
-    const teacherID   = iniObj.teacherID || null;
+    const iniObj    = _pendingIni;
+    const teacherID = iniObj.teacherID || null;
+
+    if (!teacherID) throw new Error('INI-Datei enthält keine teacherID. Bitte neuere INI vom Lehrer holen.');
+
+    // Firebase-Konto erstellen (Zero-Knowledge: nur Hash A geht zu Firebase)
+    const fbResult = await window.fbStudentAuth(id, pw, teacherID);
+    const pupilID  = fbResult.uid;
+
+    // Lehrer-Config in Firebase hinterlegen (für automatischen Re-Login)
+    await window.fbStudentSaveConfig(pupilID, {
+      teacherID, teacherName: iniObj.teacherName, publicKeyJwk: iniObj.publicKey
+    });
+
+    // Lokal speichern
     const verifyToken = await window.kfCrypto.createToken(pw);
-
-    let pupilID = null;
-    if (teacherID && window.fbStudentAuth) {
-      try {
-        const fb = await window.fbStudentAuth(name, pw, teacherID);
-        pupilID = fb.uid;
-      } catch(fbErr) {
-        console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
-      }
-    }
-
-    saveStudentConfig({ teacherName, publicKeyJwk: iniObj.publicKey, verifyToken, teacherID, pupilID });
+    saveStudentConfig({ studentID: id, teacherName: iniObj.teacherName,
+      publicKeyJwk: iniObj.publicKey, verifyToken, teacherID, pupilID });
     saveUser({ displayName: name, groupId: '' });
 
     window._kfSession = {
       studentPassword: pw, teacherPublicKeyJwk: iniObj.publicKey,
-      teacherName, teacherID, pupilID, isStudent: true
+      teacherName: iniObj.teacherName, teacherID, pupilID, isStudent: true
     };
     enterApp(getUser(), true);
   } catch(e) {
     errEl.textContent = 'Fehler: ' + e.message;
-    btn.disabled = false; btn.textContent = 'Anmelden';
+    btn.disabled = false; btn.textContent = 'Konto erstellen';
   }
 };
 
-function showStudentLogin(config) {
-  _setStudentStep('login');
-  const user = getUser();
-  document.getElementById('student-login-username').textContent = user.displayName || '–';
-  document.getElementById('student-login-teacher').textContent  = config.teacherName;
-  document.getElementById('student-login-error').textContent    = '';
-  setTimeout(() => document.getElementById('student-login-pw').focus(), 100);
-}
-
+// ── NORMALER LOGIN (wiederkehrender Schüler)
 window.submitStudentLogin = async function() {
-  const config = getStudentConfig();
-  const pw     = document.getElementById('student-login-pw').value;
-  const errEl  = document.getElementById('student-login-error');
+  const id    = document.getElementById('student-login-id').value.trim();
+  const pw    = document.getElementById('student-login-pw').value;
+  const errEl = document.getElementById('student-login-error');
   errEl.textContent = '';
+  if (!id) { errEl.textContent = 'Bitte Kennung eingeben.'; return; }
   if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
 
   const btn = document.getElementById('student-login-submit');
   btn.disabled = true; btn.textContent = 'Prüfe…';
 
-  const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
-  if (!ok) {
-    errEl.textContent = 'Falsches Passwort.';
-    btn.disabled = false; btn.textContent = 'Anmelden';
-    return;
-  }
+  try {
+    let config = getStudentConfig();
 
-  const user = getUser();
-  let { teacherID, pupilID } = config;
+    if (!config?.teacherID) {
+      // Kein lokaler Config → Schüler muss sich über "Neu hier" registrieren
+      errEl.textContent = 'Kein Konto gefunden. Bitte "Neu hier oder Lehrerwechsel?" nutzen.';
+      btn.disabled = false; btn.textContent = 'Anmelden';
+      return;
+    }
 
-  // Firebase-Login im Hintergrund (falls teacherID bekannt)
-  if (teacherID && window.fbStudentAuth) {
+    // Lokales Passwort prüfen
+    const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
+    if (!ok) { errEl.textContent = 'Falsches Passwort.'; btn.disabled = false; btn.textContent = 'Anmelden'; return; }
+
+    // Firebase-Login im Hintergrund
+    let { teacherID, pupilID } = config;
     try {
-      const fb = await window.fbStudentAuth(user.displayName, pw, teacherID);
+      const fb = await window.fbStudentAuth(id, pw, teacherID);
       pupilID = fb.uid;
-      // pupilID in Config persistieren falls neu
-      if (fb.uid !== config.pupilID) saveStudentConfig({ ...config, pupilID: fb.uid });
+
+      // Config frisch aus Firebase laden (falls Lehrer Public Key aktualisiert hat)
+      const freshConfig = await window.fbStudentLoadConfig(pupilID);
+      if (freshConfig) {
+        config = { ...config, ...freshConfig };
+        saveStudentConfig({ ...config, studentID: id, pupilID, verifyToken: config.verifyToken });
+      }
     } catch(fbErr) {
       console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
     }
+
+    const user = getUser();
+    window._kfSession = {
+      studentPassword: pw, teacherPublicKeyJwk: config.publicKeyJwk,
+      teacherName: config.teacherName, teacherID, pupilID, isStudent: true
+    };
+    enterApp(user, true);
+  } catch(e) {
+    errEl.textContent = 'Fehler: ' + e.message;
+    btn.disabled = false; btn.textContent = 'Anmelden';
   }
-
-  window._kfSession = {
-    studentPassword: pw, teacherPublicKeyJwk: config.publicKeyJwk,
-    teacherName: config.teacherName, teacherID, pupilID, isStudent: true
-  };
-  enterApp(user, true);
 };
-
-window.resetStudentAuth = async function() {
-  const ok = await showConfirm(
-    'Neu anmelden?\n\nDeine Boards bleiben gespeichert, aber du musst einen neuen Lehrer auswählen und ein neues Passwort setzen.',
-    'Ja, neu anmelden', 'Abbrechen'
-  );
-  if (!ok) return;
-  localStorage.removeItem(STUDENT_CFG_KEY);
-  window._kfSession = null;
-  await showTeacherSelection();
-};
-
-function _setStudentStep(step) {
-  ['teacher','register','login'].forEach(s => {
-    const el = document.getElementById(`student-step-${s}`);
-    if (el) el.style.display = s === step ? 'block' : 'none';
-  });
-}
 
 // ── LEHRER: FIREBASE-LOGIN (einmalig, danach automatisch) ──
 window.teacherLogin = async function() {
@@ -402,12 +403,13 @@ window.logoutUser = async function() {
 // ── ENTER-TASTEN ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   [
-    ['teacher-login-pw',  () => teacherLogin()],
-    ['teacher-login-name',() => teacherLogin()],
-    ['teacher-login-email',()=> teacherLogin()],
-    ['edit-profile-name', () => saveProfileEdit()],
-    ['student-login-pw',  () => submitStudentLogin()],
-    ['student-reg-pw2',   () => submitStudentRegister()],
+    ['teacher-login-pw',   () => teacherLogin()],
+    ['teacher-login-name', () => teacherLogin()],
+    ['teacher-login-email',() => teacherLogin()],
+    ['edit-profile-name',  () => saveProfileEdit()],
+    ['student-login-pw',   () => submitStudentLogin()],
+    ['student-login-id',   () => submitStudentLogin()],
+    ['student-reg-pw2',    () => submitStudentRegister()],
   ].forEach(([id, fn]) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });
