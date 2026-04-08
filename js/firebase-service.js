@@ -95,7 +95,11 @@ window.fbDownloadIni = async function(teacherID) {
 // ── LEHRER: Prüfen ob INI schon in Firebase liegt
 window.fbIniExists = async function(teacherID) {
   try { await getDownloadURL(ref(_storage, `ini/${teacherID}/lehrer.enc`)); return true; }
-  catch(_) { return false; }
+  catch(e) {
+    // Nur "Datei nicht gefunden" → false; Permission-Denied etc. → weiterwerfen
+    if (e.code === 'storage/object-not-found') return false;
+    throw e;
+  }
 };
 
 // ── SCHÜLER: Public Key via Klassencode (= teacherID) laden
