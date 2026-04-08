@@ -89,7 +89,7 @@
       <div class="form-group">
         <label>INI-Datei deines Lehrers</label>
         <input type="file" id="ini-file-input" accept=".ini,.json" style="display:none;" onchange="loadIniFromFile(event)"/>
-        <button class="btn" onclick="document.getElementById('ini-file-input').click()" style="width:100%; background:rgba(255,255,255,0.05); border:1px dashed var(--border);">
+        <button class="btn" onclick="document.getElementById('ini-file-input').click()" style="width:100%; background:rgba(77,127,255,0.15); border:1px solid rgba(77,127,255,0.5); color:var(--text); font-weight:600;">
           📂 INI-Datei auswählen
         </button>
         <div id="ini-load-status" style="font-size:12px; color:#4ade80; margin-top:6px; min-height:16px;"></div>
@@ -191,31 +191,6 @@
         <button class="sidebar-action-btn" onclick="openHelp()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Hilfe
         </button>
-        <!-- Lehrer: 2-Spalten Icon-Grid -->
-        <div class="sidebar-icon-grid" id="sidebar-teacher-grid" style="display:none;">
-          <button class="sib" onclick="openAdminArea()" id="sidebar-admin-btn" title="Admin">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-            <span>Admin</span>
-          </button>
-          <button class="sib" onclick="document.getElementById('modal-create-ini').style.display='flex'" id="sidebar-ini-btn" title="INI erstellen">
-            🔑<span>INI erstellen</span>
-          </button>
-          <button class="sib" onclick="loadTeacherIni()" id="sidebar-load-ini-btn" title="INI laden">
-            📂<span>INI laden</span>
-          </button>
-          <button class="sib" onclick="saveUpdatedIni()" id="sidebar-save-ini-btn" title="INI speichern">
-            💾<span>INI speichern</span>
-          </button>
-          <button class="sib" onclick="loadStudentBoardsFromFirebase()" id="sidebar-get-boards-btn" title="Schülerboards abrufen">
-            📥<span>Boards abrufen</span>
-          </button>
-          <button class="sib" onclick="returnBoardViaFirebase()" id="sidebar-return-firebase-btn" title="An Schüler zurückschicken">
-            📤<span>Zurückschicken</span>
-          </button>
-          <button class="sib" onclick="exportForStudent()" id="sidebar-return-to-student-btn" title="Als Datei zurückgeben">
-            🗂️<span>Als Datei</span>
-          </button>
-        </div>
         <!-- Schüler: Board senden -->
         <button class="sidebar-action-btn" id="sidebar-send-btn" onclick="sendBoardToTeacher()" style="display:none;">
           📤 An Lehrkraft senden
@@ -236,6 +211,30 @@
           ← Abmelden
         </button>
       </div>
+    </div>
+
+    <!-- ── RECHTE LEISTE (Lehrer-Aktionen) ───────────────── -->
+    <div id="right-panel" style="display:none;">
+      <button class="rpb" onclick="openAdminArea()" title="Admin">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Admin</span>
+      </button>
+      <button class="rpb" onclick="document.getElementById('modal-create-ini').style.display='flex'" title="INI erstellen">
+        🔑<span>INI&nbsp;erstellen</span>
+      </button>
+      <button class="rpb" onclick="saveUpdatedIni()" title="Schüler-INI speichern">
+        💾<span>INI&nbsp;speichern</span>
+      </button>
+      <div class="rp-divider"></div>
+      <button class="rpb" onclick="loadStudentBoardsFromFirebase()" title="Schülerboards abrufen">
+        📥<span>Boards&nbsp;abrufen</span>
+      </button>
+      <button class="rpb" onclick="returnBoardViaFirebase()" title="An Schüler zurückschicken">
+        📤<span>Zurückschicken</span>
+      </button>
+      <button class="rpb" onclick="exportForStudent()" title="Als Datei zurückgeben">
+        🗂️<span>Als&nbsp;Datei</span>
+      </button>
     </div>
 
     <div class="board-area" id="board-area">

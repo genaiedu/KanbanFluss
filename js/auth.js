@@ -222,33 +222,27 @@ window.teacherLogin = async function() {
   if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
 
   try {
-    // Passwort-Splitting: Hash A → Firebase, Hash B → Verschlüsselung (bleibt lokal)
-    const [hashA, hashB] = await Promise.all([
-      window.fbDeriveAuthKey(pw, email),
-      window.fbDeriveEncKey(pw, email),
-    ]);
-
-    // Firebase-Login oder automatische Registrierung
-    const uid = await window.fbTeacherAuth(email, hashA);
+    // Firebase-Login oder automatische Registrierung (vorerst Rohpasswort)
+    const uid = await window.fbTeacherAuth(email, pw);
 
     // INI aus Firebase laden — oder neu erstellen (erster Start)
     let iniObj;
     if (await window.fbIniExists(uid)) {
       const iniJson = await window.fbDownloadIni(uid);
       iniObj = JSON.parse(iniJson);
-      // Passwort durch Entschlüsselung prüfen
-      try { await window.kfCrypto.getPrivKeyFromIni(iniObj, hashB); }
+      // Passwort prüfen durch Entschlüsselung des privaten Schlüssels
+      try { await window.kfCrypto.getPrivKeyFromIni(iniObj, pw); }
       catch(_) { throw new Error('Falsches Passwort.'); }
     } else {
       // Erster Start: RSA-Schlüsselpaar + INI erstellen und hochladen
-      const iniJson = await window.kfCrypto.createIni(name, hashB, uid);
+      const iniJson = await window.kfCrypto.createIni(name, pw, uid);
       iniObj = JSON.parse(iniJson);
       await window.fbUploadIni(iniJson, uid);
     }
 
     // Session einrichten — kein weiteres Passwort nötig für diese Sitzung
     window._loadedIni = iniObj;
-    if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(hashB);
+    if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(pw);
 
     const user = { displayName: name, groupId: 'default', teacherEmail: email };
     saveUser(user);
@@ -276,12 +270,15 @@ function enterApp(user, isStudent) {
   if (nameDisplay)  nameDisplay.textContent  = user.displayName || 'Nutzer';
   if (groupDisplay) groupDisplay.textContent = user.groupId || '';
 
-  const teacherGrid = document.getElementById('sidebar-teacher-grid');
+  const rightPanel  = document.getElementById('right-panel');
   const sendBtn     = document.getElementById('sidebar-send-btn');
   const badge       = document.getElementById('sidebar-role-badge');
 
+  const appScreen = document.getElementById('app-screen');
+
   if (isStudent) {
-    if (teacherGrid) teacherGrid.style.display = 'none';
+    if (rightPanel) rightPanel.style.display = 'none';
+    if (appScreen)  appScreen.classList.remove('has-right-panel');
     // "An Lehrkraft senden" nur zeigen wenn teacherID bekannt
     if (sendBtn) sendBtn.style.display = window._kfSession?.teacherID ? '' : 'none';
     if (badge) {
@@ -292,8 +289,9 @@ function enterApp(user, isStudent) {
     }
     S.isAdminMode = false;
   } else {
-    if (teacherGrid) teacherGrid.style.display = 'grid';
-    if (sendBtn)     sendBtn.style.display     = 'none';
+    if (rightPanel) rightPanel.style.display = 'flex';
+    if (appScreen)  appScreen.classList.add('has-right-panel');
+    if (sendBtn)    sendBtn.style.display    = 'none';
     if (badge) {
       badge.textContent = 'Lehrkraft';
       badge.style.background = 'rgba(99,102,241,0.2)';

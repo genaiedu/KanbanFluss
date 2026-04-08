@@ -45,14 +45,14 @@ function _sanitize(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) || 'schueler';
 }
 
-// ── LEHRER: Firebase-Login oder Registrierung (mit Hash A)
-window.fbTeacherAuth = async function(email, hashA) {
+// ── LEHRER: Firebase-Login oder Registrierung (Rohpasswort, vorerst ohne Split)
+window.fbTeacherAuth = async function(email, password) {
   try {
-    const cred = await signInWithEmailAndPassword(_auth, email, hashA);
+    const cred = await signInWithEmailAndPassword(_auth, email, password);
     return cred.user.uid;
   } catch(e) {
     if (['auth/user-not-found', 'auth/invalid-credential'].includes(e.code)) {
-      const cred = await createUserWithEmailAndPassword(_auth, email, hashA);
+      const cred = await createUserWithEmailAndPassword(_auth, email, password);
       return cred.user.uid;
     }
     throw e;
@@ -109,24 +109,18 @@ window.fbResumeSession = function() {
   return _auth.currentUser;
 };
 
-// ── SCHÜLER: Firebase-Auth (Zero-Knowledge)
-// Fake-Email + Hash A werden aus Kennung + teacherID + Passwort abgeleitet.
-// Hash B (Verschlüsselungsschlüssel) bleibt lokal — geht nie zu Firebase.
-// Wer Kennung, Lehrer oder Passwort falsch eingibt, bekommt falsche Hashes → Auth schlägt fehl.
-window.fbStudentAuth = async function(identifier, localPw, teacherID) {
+// ── SCHÜLER: Firebase-Auth (vorerst Rohpasswort, Split kommt später zurück)
+window.fbStudentAuth = async function(identifier, pw, teacherID) {
   const safe  = _sanitize(identifier);
-  const salt  = teacherID + '|' + safe;                      // eindeutig pro Schüler+Lehrer
   const email = `${safe}.${teacherID.slice(0, 12)}@kanbanfluss.app`;
-  const hashA = await _derive256(localPw, 'kf-auth|' + salt); // → Firebase
-  const hashB = await _derive256(localPw, 'kf-enc|'  + salt); // → Verschlüsselung, bleibt lokal
 
   try {
-    const cred = await signInWithEmailAndPassword(_auth, email, hashA);
-    return { uid: cred.user.uid, email, hashB };
+    const cred = await signInWithEmailAndPassword(_auth, email, pw);
+    return { uid: cred.user.uid, email, hashB: pw };
   } catch(e) {
     if (['auth/user-not-found', 'auth/invalid-credential', 'auth/invalid-email'].includes(e.code)) {
-      const cred = await createUserWithEmailAndPassword(_auth, email, hashA);
-      return { uid: cred.user.uid, email, hashB };
+      const cred = await createUserWithEmailAndPassword(_auth, email, pw);
+      return { uid: cred.user.uid, email, hashB: pw };
     }
     throw e;
   }
