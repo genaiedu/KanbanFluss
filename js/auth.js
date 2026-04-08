@@ -211,6 +211,7 @@ function enterApp(user, isStudent) {
 
   const adminBtn        = document.getElementById('sidebar-admin-btn');
   const iniBtn          = document.getElementById('sidebar-ini-btn');
+  const saveIniBtn      = document.getElementById('sidebar-save-ini-btn');
   const returnBtn       = document.getElementById('sidebar-return-to-student-btn');
   const firebaseBtn     = document.getElementById('sidebar-firebase-btn');
   const getBoardsBtn    = document.getElementById('sidebar-get-boards-btn');
@@ -221,6 +222,7 @@ function enterApp(user, isStudent) {
   if (isStudent) {
     if (adminBtn)     adminBtn.style.display     = 'none';
     if (iniBtn)       iniBtn.style.display       = 'none';
+    if (saveIniBtn)   saveIniBtn.style.display   = 'none';
     if (returnBtn)    returnBtn.style.display     = 'none';
     if (firebaseBtn)  firebaseBtn.style.display   = 'none';
     if (getBoardsBtn) getBoardsBtn.style.display  = 'none';
@@ -237,6 +239,7 @@ function enterApp(user, isStudent) {
   } else {
     if (adminBtn)     adminBtn.style.display     = '';
     if (iniBtn)       iniBtn.style.display       = '';
+    if (saveIniBtn)   saveIniBtn.style.display   = '';
     if (returnBtn)    returnBtn.style.display     = '';
     if (firebaseBtn)  firebaseBtn.style.display   = '';
     if (getBoardsBtn) getBoardsBtn.style.display  = '';
