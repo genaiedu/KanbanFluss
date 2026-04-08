@@ -18,22 +18,54 @@ window.initApp = function() {
   if (isStudent) {
     initStudentAuth();
   } else {
-    // Lehrer: immer Login-Formular zeigen (Passwort für Hash B nötig)
     const user = getUser();
-    const screen = document.getElementById('auth-screen');
-    screen.style.display = 'flex';
-    // Gespeicherte Werte vorausfüllen
+    document.getElementById('auth-screen').style.display = 'flex';
     const nameEl  = document.getElementById('teacher-login-name');
     const emailEl = document.getElementById('teacher-login-email');
-    if (nameEl  && user.displayName)   nameEl.value  = user.displayName;
-    if (emailEl && user.teacherEmail)  emailEl.value = user.teacherEmail;
-    setTimeout(() => {
-      const focus = user.teacherEmail
-        ? document.getElementById('teacher-login-pw')
-        : document.getElementById('teacher-login-name');
-      if (focus) focus.focus();
-    }, 100);
+    if (nameEl  && user.displayName)  nameEl.value  = user.displayName;
+    if (emailEl && user.teacherEmail) emailEl.value = user.teacherEmail;
+
+    if (user.teacherEmail) {
+      _showTeacherLogin(user);  // Wiederanmeldung: nur Passwort
+    } else {
+      _showTeacherRegister();   // Erstanmeldung: alle Felder
+    }
   }
+};
+
+// ── LEHRER: Wiederanmeldung (nur Passwort) ───────────────
+function _showTeacherLogin(user) {
+  document.getElementById('teacher-name-group').style.display  = 'none';
+  document.getElementById('teacher-email-group').style.display = 'none';
+  document.getElementById('teacher-auth-title').textContent    = 'Willkommen zurück';
+  document.getElementById('teacher-auth-subtitle').innerHTML   =
+    `<strong>${user.displayName || ''}</strong> &middot; ${user.teacherEmail}`;
+  document.getElementById('teacher-login-btn').textContent = 'Anmelden';
+  document.getElementById('teacher-switch-link').style.display = '';
+  document.getElementById('profile-error').textContent = '';
+  setTimeout(() => document.getElementById('teacher-login-pw')?.focus(), 100);
+}
+
+// ── LEHRER: Erstanmeldung / Kontowechsel (alle Felder) ───
+function _showTeacherRegister() {
+  document.getElementById('teacher-name-group').style.display  = '';
+  document.getElementById('teacher-email-group').style.display = '';
+  document.getElementById('teacher-auth-title').textContent    = 'Konto einrichten';
+  document.getElementById('teacher-auth-subtitle').textContent = 'Einmalige Einrichtung — danach automatisch.';
+  document.getElementById('teacher-login-btn').textContent = 'Konto erstellen';
+  document.getElementById('teacher-switch-link').style.display = 'none';
+  document.getElementById('profile-error').textContent = '';
+  setTimeout(() => document.getElementById('teacher-login-name')?.focus(), 100);
+}
+
+// Öffentlich — für "Anderes Konto"-Button
+window.showTeacherRegister = function() {
+  // Email + Name leeren damit kein altes Konto vorausgefüllt bleibt
+  const nameEl  = document.getElementById('teacher-login-name');
+  const emailEl = document.getElementById('teacher-login-email');
+  if (nameEl)  nameEl.value  = '';
+  if (emailEl) emailEl.value = '';
+  _showTeacherRegister();
 };
 
 // ── SCHÜLER-AUTHENTIFIZIERUNG ────────────────────────────
@@ -210,10 +242,11 @@ window.submitStudentLogin = async function() {
 window.teacherLogin = async function() {
   const name  = document.getElementById('teacher-login-name')?.value.trim();
   const email = document.getElementById('teacher-login-email')?.value.trim().toLowerCase();
-  const pw    = document.getElementById('teacher-login-pw')?.value;
+  const pw    = document.getElementById('teacher-login-pw')?.value ?? '';
   const errEl = document.getElementById('profile-error');
   if (errEl) errEl.textContent = '';
 
+  // Im Wiederanmeldungs-Modus sind Name/Email ausgeblendet aber vorausgefüllt
   if (!name)         { if (errEl) errEl.textContent = 'Bitte Namen eingeben.'; return; }
   if (!email)        { if (errEl) errEl.textContent = 'Bitte E-Mail eingeben.'; return; }
   if (pw.length < 6) { if (errEl) errEl.textContent = 'Passwort: mindestens 6 Zeichen.'; return; }

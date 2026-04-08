@@ -112,24 +112,29 @@
         <img src="images/logo.png" style="width:110px; height:110px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
       </div>
     </div>
-    <div class="auth-title" style="font-size:20px;">Lehrkraft anmelden</div>
-    <div class="auth-subtitle">Einmalige Einrichtung — danach automatisch.</div>
+    <div id="teacher-auth-title" class="auth-title" style="font-size:20px;">Konto einrichten</div>
+    <div id="teacher-auth-subtitle" class="auth-subtitle">Einmalige Einrichtung — danach automatisch.</div>
     <div id="profile-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:4px;"></div>
-    <div class="form-group">
+    <div id="teacher-name-group" class="form-group">
       <label>Dein Name</label>
       <input type="text" id="teacher-login-name" placeholder="z. B. Fr. Müller" autocomplete="name"/>
     </div>
-    <div class="form-group">
+    <div id="teacher-email-group" class="form-group">
       <label>E-Mail-Adresse</label>
       <input type="email" id="teacher-login-email" placeholder="name@schule.de" autocomplete="email"/>
     </div>
     <div class="form-group">
       <label>Passwort <span style="color:var(--text-muted); font-size:11px;">(mind. 6 Zeichen)</span></label>
-      <input type="password" id="teacher-login-pw" placeholder="Beim ersten Start frei wählbar" autocomplete="current-password"/>
+      <input type="password" id="teacher-login-pw" placeholder="Passwort eingeben" autocomplete="current-password"/>
     </div>
-    <button id="teacher-login-btn" class="btn btn-primary" onclick="teacherLogin()" style="width:100%; margin-top:8px;">Anmelden</button>
-    <div style="font-size:11px; color:var(--text-muted); margin-top:12px; text-align:center; line-height:1.5;">
-      Beim ersten Start wird ein Konto erstellt.<br>Das Passwort verschlüsselt deine Daten — es wird <strong>nie</strong> übertragen.
+    <button id="teacher-login-btn" class="btn btn-primary" onclick="teacherLogin()" style="width:100%; margin-top:8px;">Konto erstellen</button>
+    <div style="text-align:center; margin-top:14px;">
+      <button id="teacher-switch-link" onclick="showTeacherRegister()" style="display:none; background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:underline;">
+        Anderes Konto / Neu einrichten
+      </button>
+    </div>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:10px; text-align:center; line-height:1.5;">
+      Das Passwort verschlüsselt deine Daten — es wird <strong>nie</strong> übertragen.
     </div>
   </div>
 </div>
