@@ -109,19 +109,24 @@ window.fbResumeSession = function() {
   return _auth.currentUser;
 };
 
-// ── SCHÜLER: Firebase-Auth (Zero-Knowledge, mit abgeleitetem Hash A)
-window.fbStudentAuth = async function(username, localPw, teacherID) {
-  const safe  = _sanitize(username);
-  const email = `${safe}.${teacherID}@kanbanfluss.app`;
-  const hashA = await _derive256(localPw, 'kf-auth|' + teacherID + '|' + safe);
+// ── SCHÜLER: Firebase-Auth (Zero-Knowledge)
+// Fake-Email + Hash A werden aus Kennung + teacherID + Passwort abgeleitet.
+// Hash B (Verschlüsselungsschlüssel) bleibt lokal — geht nie zu Firebase.
+// Wer Kennung, Lehrer oder Passwort falsch eingibt, bekommt falsche Hashes → Auth schlägt fehl.
+window.fbStudentAuth = async function(identifier, localPw, teacherID) {
+  const safe  = _sanitize(identifier);
+  const salt  = teacherID + '|' + safe;                      // eindeutig pro Schüler+Lehrer
+  const email = `${safe}.${teacherID.slice(0, 12)}@kanbanfluss.app`;
+  const hashA = await _derive256(localPw, 'kf-auth|' + salt); // → Firebase
+  const hashB = await _derive256(localPw, 'kf-enc|'  + salt); // → Verschlüsselung, bleibt lokal
 
   try {
     const cred = await signInWithEmailAndPassword(_auth, email, hashA);
-    return { uid: cred.user.uid, email };
+    return { uid: cred.user.uid, email, hashB };
   } catch(e) {
     if (['auth/user-not-found', 'auth/invalid-credential', 'auth/invalid-email'].includes(e.code)) {
       const cred = await createUserWithEmailAndPassword(_auth, email, hashA);
-      return { uid: cred.user.uid, email };
+      return { uid: cred.user.uid, email, hashB };
     }
     throw e;
   }

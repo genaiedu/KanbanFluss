@@ -115,22 +115,25 @@ window.submitStudentRegister = async function() {
     if (!teacherID) throw new Error('INI-Datei enthält keine teacherID. Bitte neuere INI vom Lehrer holen.');
 
     // Firebase-Konto erstellen (Zero-Knowledge: nur Hash A geht zu Firebase)
+    // Hash B (Verschlüsselungsschlüssel) kommt zurück und bleibt lokal
     const fbResult = await window.fbStudentAuth(id, pw, teacherID);
     const pupilID  = fbResult.uid;
+    const hashB    = fbResult.hashB; // für Verschlüsselung statt Rohpasswort
 
     // Lehrer-Config in Firebase hinterlegen (für automatischen Re-Login)
     await window.fbStudentSaveConfig(pupilID, {
       teacherID, teacherName: iniObj.teacherName, publicKeyJwk: iniObj.publicKey
     });
 
-    // Lokal speichern
+    // Lokal speichern (verifyToken prüft nur das Rohpasswort — schnell, offline)
     const verifyToken = await window.kfCrypto.createToken(pw);
     saveStudentConfig({ studentID: id, teacherName: iniObj.teacherName,
       publicKeyJwk: iniObj.publicKey, verifyToken, teacherID, pupilID });
     saveUser({ displayName: name, groupId: '' });
 
     window._kfSession = {
-      studentPassword: pw, teacherPublicKeyJwk: iniObj.publicKey,
+      studentPassword: hashB,           // Hash B — nie das Rohpasswort
+      teacherPublicKeyJwk: iniObj.publicKey,
       teacherName: iniObj.teacherName, teacherID, pupilID, isStudent: true
     };
     enterApp(getUser(), true);
@@ -166,11 +169,13 @@ window.submitStudentLogin = async function() {
     const ok = await window.kfCrypto.checkToken(config.verifyToken, pw);
     if (!ok) { errEl.textContent = 'Falsches Passwort.'; btn.disabled = false; btn.textContent = 'Anmelden'; return; }
 
-    // Firebase-Login im Hintergrund
+    // Firebase-Login im Hintergrund — liefert auch Hash B für Verschlüsselung
     let { teacherID, pupilID } = config;
+    let hashB = null;
     try {
       const fb = await window.fbStudentAuth(id, pw, teacherID);
       pupilID = fb.uid;
+      hashB   = fb.hashB;
 
       // Config frisch aus Firebase laden (falls Lehrer Public Key aktualisiert hat)
       const freshConfig = await window.fbStudentLoadConfig(pupilID);
@@ -180,11 +185,18 @@ window.submitStudentLogin = async function() {
       }
     } catch(fbErr) {
       console.warn('Firebase-Auth fehlgeschlagen (offline?):', fbErr.message);
+      // Offline: Hash B lokal ableiten (selbe Formel wie in firebase-service.js)
+      try {
+        hashB = await window.fbDeriveEncKey
+          ? await window.fbDeriveEncKey(pw, teacherID + '|' + id.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,20))
+          : pw; // Fallback: Rohpasswort (nur offline)
+      } catch(_) { hashB = pw; }
     }
 
     const user = getUser();
     window._kfSession = {
-      studentPassword: pw, teacherPublicKeyJwk: config.publicKeyJwk,
+      studentPassword: hashB ?? pw,       // Hash B bevorzugt, Rohpasswort nur als Notfall
+      teacherPublicKeyJwk: config.publicKeyJwk,
       teacherName: config.teacherName, teacherID, pupilID, isStudent: true
     };
     enterApp(user, true);
