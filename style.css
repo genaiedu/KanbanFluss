@@ -1229,6 +1229,56 @@ body.theme-light .aging-badge {
   background: rgba(77,127,255,0.1);
   color: var(--text);
 }
+
+/* ── 2-Spalten Icon-Grid (Lehrer) ─────────────────────── */
+.sidebar-icon-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px 12px;
+}
+.sib {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  min-height: 56px;
+  overflow: visible;
+}
+.sib span {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sib:hover {
+  background: rgba(77,127,255,0.12);
+  border-color: rgba(77,127,255,0.3);
+  color: var(--text);
+}
+.sib:hover span {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .sidebar-logout:hover {
   color: var(--danger) !important;
   background: rgba(240,82,82,0.08) !important;

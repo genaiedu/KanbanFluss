@@ -901,7 +901,12 @@ window.doFirebaseTeacherLogin = async function() {
   const pw    = document.getElementById('fb-teacher-pw')?.value;
   const errEl = document.getElementById('fb-teacher-error');
   if (errEl) errEl.textContent = '';
+
   if (!email || !pw) { if (errEl) errEl.textContent = 'E-Mail und Passwort eingeben.'; return; }
+  if (!window._loadedIni) {
+    if (errEl) errEl.textContent = 'Bitte zuerst INI laden (💾 INI laden in der Sidebar), dann Firebase verbinden.';
+    return;
+  }
 
   const btn = document.getElementById('fb-login-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
@@ -911,23 +916,21 @@ window.doFirebaseTeacherLogin = async function() {
     try {
       uid = await window.fbTeacherLogin(email, pw);
     } catch(loginErr) {
-      // Kein Account → neu registrieren
       if (['auth/user-not-found','auth/invalid-credential'].includes(loginErr.code)) {
         uid = await window.fbTeacherRegister(email, pw);
-        showToast('Firebase-Konto erstellt ✓');
       } else throw loginErr;
     }
 
-    // teacherID in geladene INI einbetten (zum späteren Neu-Speichern)
-    if (window._loadedIni && !window._loadedIni.teacherID) {
-      window._loadedIni.teacherID = uid;
-      showToast(`Firebase verbunden (ID: ${uid.slice(0,8)}…). Bitte INI neu speichern!`);
-    } else {
-      showToast(`Firebase verbunden ✓`);
-    }
+    // teacherID in geladene INI einbetten
+    window._loadedIni.teacherID = uid;
 
     closeModal('modal-firebase-login');
     if (window._fbLoginResolve) { window._fbLoginResolve(); window._fbLoginResolve = null; }
+
+    // INI automatisch herunterladen
+    showToast('Firebase verbunden ✓ — INI wird aktualisiert gespeichert…');
+    setTimeout(() => window.saveUpdatedIni(), 600);
+
   } catch(e) {
     if (errEl) errEl.textContent = 'Fehler: ' + e.message;
   } finally {
