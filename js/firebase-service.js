@@ -25,47 +25,90 @@ const _auth    = getAuth(_app);
 const _db      = getFirestore(_app);
 const _storage = getStorage(_app);
 
-// ── Hash A: Firebase-Passwort ableiten (Zero-Knowledge)
-// Das Original-Passwort (Hash B) bleibt lokal für die AES-Verschlüsselung.
-async function _deriveFirebasePw(localPw, teacherID, username) {
+// ── PBKDF2-Hilfe: 256-Bit-Hex aus Passwort + Salt ableiten
+async function _derive256(pw, salt) {
   const enc = new TextEncoder();
-  const km  = await crypto.subtle.importKey('raw', enc.encode(localPw), 'PBKDF2', false, ['deriveBits']);
+  const km  = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: enc.encode('kf-auth|' + teacherID + '|' + username), iterations: 100000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
     km, 256
   );
   return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Hash A → geht an Firebase (nie lokal für Verschlüsselung genutzt)
+window.fbDeriveAuthKey = (pw, email) => _derive256(pw, 'kf-auth|' + email.toLowerCase());
+// Hash B → bleibt lokal als Verschlüsselungsschlüssel
+window.fbDeriveEncKey  = (pw, email) => _derive256(pw, 'kf-enc|'  + email.toLowerCase());
+
 function _sanitize(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) || 'schueler';
 }
 
-// ── LEHRER: Firebase-Konto erstellen (einmalig)
-window.fbTeacherRegister = async function(email, password) {
-  const cred = await createUserWithEmailAndPassword(_auth, email, password);
-  return cred.user.uid;
+// ── LEHRER: Firebase-Login oder Registrierung (mit Hash A)
+window.fbTeacherAuth = async function(email, hashA) {
+  try {
+    const cred = await signInWithEmailAndPassword(_auth, email, hashA);
+    return cred.user.uid;
+  } catch(e) {
+    if (['auth/user-not-found', 'auth/invalid-credential'].includes(e.code)) {
+      const cred = await createUserWithEmailAndPassword(_auth, email, hashA);
+      return cred.user.uid;
+    }
+    throw e;
+  }
 };
 
-// ── LEHRER: Firebase-Login
-window.fbTeacherLogin = async function(email, password) {
-  const cred = await signInWithEmailAndPassword(_auth, email, password);
-  return cred.user.uid;
+// ── LEHRER: INI in Firebase speichern (verschlüsselter Privat-Key + öffentlicher Teil)
+window.fbUploadIni = async function(iniJson, teacherID) {
+  const iniObj = JSON.parse(iniJson);
+  // Vollständige INI (mit verschlüsseltem Privat-Key) — nur Lehrer lesbar
+  await uploadString(ref(_storage, `ini/${teacherID}/lehrer.enc`), iniJson);
+  // Öffentlicher Teil (nur Public Key) — für Schüler über Klassencode abrufbar
+  const pubPart = JSON.stringify({
+    kanbanfluss_ini: true, version: 2,
+    teacherName: iniObj.teacherName,
+    publicKey:   iniObj.publicKey,
+    teacherID,
+  });
+  await uploadString(ref(_storage, `public/${teacherID}/pubkey.json`), pubPart);
 };
 
-// ── SCHÜLER: Firebase-Auth (Login oder automatische Registrierung)
-// Leitet eine Fake-E-Mail und ein Hash-A-Passwort ab — beides nie lokal nutzbar.
+// ── LEHRER: INI aus Firebase laden
+window.fbDownloadIni = async function(teacherID) {
+  const url = await getDownloadURL(ref(_storage, `ini/${teacherID}/lehrer.enc`));
+  return fetch(url).then(r => r.text());
+};
+
+// ── LEHRER: Prüfen ob INI schon in Firebase liegt
+window.fbIniExists = async function(teacherID) {
+  try { await getDownloadURL(ref(_storage, `ini/${teacherID}/lehrer.enc`)); return true; }
+  catch(_) { return false; }
+};
+
+// ── SCHÜLER: Public Key via Klassencode (= teacherID) laden
+window.fbGetTeacherPubKey = async function(teacherID) {
+  const url = await getDownloadURL(ref(_storage, `public/${teacherID}/pubkey.json`));
+  return fetch(url).then(r => r.json()); // { teacherName, publicKey, teacherID }
+};
+
+// ── LEHRER: Überprüfen ob Firebase-Session noch aktiv ist
+window.fbResumeSession = function() {
+  return _auth.currentUser;
+};
+
+// ── SCHÜLER: Firebase-Auth (Zero-Knowledge, mit abgeleitetem Hash A)
 window.fbStudentAuth = async function(username, localPw, teacherID) {
   const safe  = _sanitize(username);
   const email = `${safe}.${teacherID}@kanbanfluss.app`;
-  const fbPw  = await _deriveFirebasePw(localPw, teacherID, safe);
+  const hashA = await _derive256(localPw, 'kf-auth|' + teacherID + '|' + safe);
 
   try {
-    const cred = await signInWithEmailAndPassword(_auth, email, fbPw);
+    const cred = await signInWithEmailAndPassword(_auth, email, hashA);
     return { uid: cred.user.uid, email };
   } catch(e) {
     if (['auth/user-not-found', 'auth/invalid-credential', 'auth/invalid-email'].includes(e.code)) {
-      const cred = await createUserWithEmailAndPassword(_auth, email, fbPw);
+      const cred = await createUserWithEmailAndPassword(_auth, email, hashA);
       return { uid: cred.user.uid, email };
     }
     throw e;

@@ -100,7 +100,7 @@
   </div>
 </div>
 
-<!-- ── PROFIL-EINGABE LEHRER (erster Start) ──────────── -->
+<!-- ── LEHRER-LOGIN ───────────────────────────────────── -->
 <div id="auth-screen" style="display:none;">
   <div class="auth-box">
     <div class="auth-logo">
@@ -108,18 +108,25 @@
         <img src="images/logo.png" style="width:110px; height:110px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
       </div>
     </div>
-    <div class="auth-title">Willkommen bei KanbanFluss</div>
-    <div class="auth-subtitle">Alle Daten bleiben lokal auf diesem Gerät.</div>
-    <div class="error-msg" id="profile-error"></div>
+    <div class="auth-title" style="font-size:20px;">Lehrkraft anmelden</div>
+    <div class="auth-subtitle">Einmalige Einrichtung — danach automatisch.</div>
+    <div class="error-msg" id="profile-error" style="min-height:18px; margin-bottom:4px;"></div>
     <div class="form-group">
       <label>Dein Name</label>
-      <input type="text" id="profile-name" placeholder="z. B. Max Mustermann" autocomplete="name"/>
+      <input type="text" id="teacher-login-name" placeholder="z. B. Fr. Müller" autocomplete="name"/>
     </div>
     <div class="form-group">
-      <label>Gruppe / Klasse <span style="color:var(--text-muted); font-size:11px;">(optional)</span></label>
-      <input type="text" id="profile-group" placeholder="z. B. 10b"/>
+      <label>E-Mail-Adresse</label>
+      <input type="email" id="teacher-login-email" placeholder="name@schule.de" autocomplete="email"/>
     </div>
-    <button class="btn btn-primary" onclick="saveProfile()" style="width:100%; margin-top:8px;">Los geht's</button>
+    <div class="form-group">
+      <label>Passwort <span style="color:var(--text-muted); font-size:11px;">(mind. 6 Zeichen)</span></label>
+      <input type="password" id="teacher-login-pw" placeholder="Beim ersten Start frei wählbar" autocomplete="current-password"/>
+    </div>
+    <button id="teacher-login-btn" class="btn btn-primary" onclick="teacherLogin()" style="width:100%; margin-top:8px;">Anmelden</button>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:12px; text-align:center; line-height:1.5;">
+      Beim ersten Start wird ein Konto erstellt.<br>Das Passwort verschlüsselt deine Daten — es wird <strong>nie</strong> übertragen.
+    </div>
   </div>
 </div>
 

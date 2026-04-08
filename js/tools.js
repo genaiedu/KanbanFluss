@@ -697,6 +697,11 @@ window.resetToolsSession = function() {
   window._studentReturnKeys = null;
 };
 
+// ── HASH B AUS LOGIN SETZEN (kein weiterer Passwort-Dialog nötig) ──
+window.setTeacherSessionKey = function(hashB) {
+  _teacherSessionPassword = hashB;
+};
+
 // ── SCHÜLER: Aktuelles Board an Lehrkraft senden (über Firebase) ──
 window.sendBoardToTeacher = async function() {
   const session = window._kfSession;
@@ -938,17 +943,26 @@ window.doFirebaseTeacherLogin = async function() {
   }
 };
 
-// ── LEHRER: Aktuell geladene INI mit teacherID neu speichern ──
+// ── LEHRER: Schüler-INI herunterladen (nur Public Key, kein Privat-Key) ──
 window.saveUpdatedIni = function() {
   const ini = window._loadedIni;
-  if (!ini?.teacherID) { showToast('Keine INI geladen oder teacherID fehlt.', 'error'); return; }
-  const json = window.kfCrypto.addTeacherIDToIni(ini, ini.teacherID);
-  const name = `${(ini.teacherName || 'lehrer').replace(/\s+/g,'_')}.ini`;
+  if (!ini?.teacherID) {
+    showToast('Bitte zuerst anmelden — teacherID fehlt.', 'error'); return;
+  }
+  // Nur der öffentliche Teil — Schüler brauchen keinen Privat-Key
+  const pubPart = {
+    kanbanfluss_ini: true, version: 2,
+    teacherName: ini.teacherName,
+    publicKey:   ini.publicKey,
+    teacherID:   ini.teacherID,
+  };
+  const json = JSON.stringify(pubPart, null, 2);
+  const name = `${(ini.teacherName || 'lehrer').replace(/\s+/g,'_')}-schüler.ini`;
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ Aktualisierte INI gespeichert! Schüler bitte neu einladen.');
+  showToast('✅ Schüler-INI gespeichert (enthält nur den öffentlichen Schlüssel).');
 };
 
 // ── RÜCKGABE-EXPORT AN SCHÜLER (Lehrer-only) ──────────────

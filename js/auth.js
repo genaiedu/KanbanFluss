@@ -18,13 +18,21 @@ window.initApp = function() {
   if (isStudent) {
     initStudentAuth();
   } else {
+    // Lehrer: immer Login-Formular zeigen (Passwort für Hash B nötig)
     const user = getUser();
-    if (user.displayName) {
-      enterApp(user, false);
-    } else {
-      document.getElementById('auth-screen').style.display = 'flex';
-      setTimeout(() => { const el = document.getElementById('profile-name'); if (el) el.focus(); }, 100);
-    }
+    const screen = document.getElementById('auth-screen');
+    screen.style.display = 'flex';
+    // Gespeicherte Werte vorausfüllen
+    const nameEl  = document.getElementById('teacher-login-name');
+    const emailEl = document.getElementById('teacher-login-email');
+    if (nameEl  && user.displayName)   nameEl.value  = user.displayName;
+    if (emailEl && user.teacherEmail)  emailEl.value = user.teacherEmail;
+    setTimeout(() => {
+      const focus = user.teacherEmail
+        ? document.getElementById('teacher-login-pw')
+        : document.getElementById('teacher-login-name');
+      if (focus) focus.focus();
+    }, 100);
   }
 };
 
@@ -185,14 +193,60 @@ function _setStudentStep(step) {
   });
 }
 
-// ── LEHRER: PROFIL SPEICHERN ─────────────────────────────
-window.saveProfile = function() {
-  const name  = document.getElementById('profile-name')?.value.trim()  || '';
-  const group = document.getElementById('profile-group')?.value.trim() || '';
-  if (!name) { showError('profile-error', 'Bitte gib deinen Namen ein.'); return; }
-  const user = { displayName: name, groupId: group || 'default' };
-  saveUser(user);
-  enterApp(user, false);
+// ── LEHRER: FIREBASE-LOGIN (einmalig, danach automatisch) ──
+window.teacherLogin = async function() {
+  const name  = document.getElementById('teacher-login-name')?.value.trim();
+  const email = document.getElementById('teacher-login-email')?.value.trim().toLowerCase();
+  const pw    = document.getElementById('teacher-login-pw')?.value;
+  const errEl = document.getElementById('profile-error');
+  if (errEl) errEl.textContent = '';
+
+  if (!name)         { if (errEl) errEl.textContent = 'Bitte Namen eingeben.'; return; }
+  if (!email)        { if (errEl) errEl.textContent = 'Bitte E-Mail eingeben.'; return; }
+  if (pw.length < 6) { if (errEl) errEl.textContent = 'Passwort: mindestens 6 Zeichen.'; return; }
+
+  const btn = document.getElementById('teacher-login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
+
+  try {
+    // Passwort-Splitting: Hash A → Firebase, Hash B → Verschlüsselung (bleibt lokal)
+    const [hashA, hashB] = await Promise.all([
+      window.fbDeriveAuthKey(pw, email),
+      window.fbDeriveEncKey(pw, email),
+    ]);
+
+    // Firebase-Login oder automatische Registrierung
+    const uid = await window.fbTeacherAuth(email, hashA);
+
+    // INI aus Firebase laden — oder neu erstellen (erster Start)
+    let iniObj;
+    if (await window.fbIniExists(uid)) {
+      const iniJson = await window.fbDownloadIni(uid);
+      iniObj = JSON.parse(iniJson);
+      // Passwort durch Entschlüsselung prüfen
+      try { await window.kfCrypto.getPrivKeyFromIni(iniObj, hashB); }
+      catch(_) { throw new Error('Falsches Passwort.'); }
+    } else {
+      // Erster Start: RSA-Schlüsselpaar + INI erstellen und hochladen
+      const iniJson = await window.kfCrypto.createIni(name, hashB, uid);
+      iniObj = JSON.parse(iniJson);
+      await window.fbUploadIni(iniJson, uid);
+    }
+
+    // Session einrichten — kein weiteres Passwort nötig für diese Sitzung
+    window._loadedIni = iniObj;
+    if (typeof window.setTeacherSessionKey === 'function') window.setTeacherSessionKey(hashB);
+
+    const user = { displayName: name, groupId: 'default', teacherEmail: email };
+    saveUser(user);
+    enterApp(user, false);
+  } catch(e) {
+    const msg = e.code === 'auth/wrong-password' ? 'Falsches Passwort.'
+              : e.code === 'auth/too-many-requests' ? 'Zu viele Versuche. Bitte kurz warten.'
+              : e.message;
+    if (errEl) errEl.textContent = 'Fehler: ' + msg;
+    if (btn) { btn.disabled = false; btn.textContent = 'Anmelden'; }
+  }
 };
 
 // ── IN DIE APP WECHSELN ──────────────────────────────────
@@ -348,7 +402,9 @@ window.logoutUser = async function() {
 // ── ENTER-TASTEN ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   [
-    ['profile-name',      () => saveProfile()],
+    ['teacher-login-pw',  () => teacherLogin()],
+    ['teacher-login-name',() => teacherLogin()],
+    ['teacher-login-email',()=> teacherLogin()],
     ['edit-profile-name', () => saveProfileEdit()],
     ['student-login-pw',  () => submitStudentLogin()],
     ['student-reg-pw2',   () => submitStudentRegister()],
